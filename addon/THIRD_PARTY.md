@@ -1,0 +1,13 @@
+# Third-party components
+
+- CPython 3.13.9 embedded Windows x64 distribution: https://www.python.org/ftp/python/3.13.9/python-3.13.9-embed-amd64.zip ; source https://www.python.org/ftp/python/3.13.9/Python-3.13.9.tar.xz . PSF license and bundled notices in globalPlugins/bookAudio/runtime/LICENSE.txt.
+- pypdf 6.21.2, BSD-3-Clause: https://pypi.org/project/pypdf/6.21.2/ ; source https://github.com/py-pdf/pypdf/tree/6.21.2 . License in vendor/pypdf-6.21.2.dist-info/licenses/LICENSE.
+- defusedxml 0.7.1, PSF license: https://pypi.org/project/defusedxml/0.7.1/ ; source https://github.com/tiran/defusedxml . License in vendor/defusedxml-0.7.1.dist-info/LICENSE.
+- lameenc 1.9.0 CPython 3.13 Windows x64 wheel, LGPL-3.0: https://pypi.org/project/lameenc/1.9.0/ ; source https://github.com/chrisstaite/lameenc . This binary links LAME (LGPL); license in globalPlugins/bookAudio/vendor/lameenc-1.9.0.dist-info/licenses/LICENSE. Original wheel and dependency source archives are supplied in the installed package under licenses/sources/ and in the source distribution under third_party_sources/. The LAME extension is dynamically loaded and can be replaced with an ABI-compatible modified build; no signature checks or DRM restrict replacement.
+- LAME 4.0 (the version pinned by lameenc v1.9.0 CMakeLists.txt), LGPL: https://lame.sourceforge.io/ ; https://sourceforge.net/projects/lame/files/lame/4.0/ . Source archive lame-4.0.tar.gz is included in third_party_sources/. Its verified SHA-256 is 3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb (matches upstream). Rebuild recipe and source patch are in lameenc-1.9.0.tar.gz.
+
+The worker-only `bridge_capture.py` launcher sequence is adapted from NV Access Limited's NVDA 2026.2 `source/_bridge/clients/synthDriverHost32/launcher.py` (Copyright 2025 NV Access Limited), GPL-2.0-or-later with the additional NVDA permissions. Corresponding adapted source is included directly in the add-on; original source: https://github.com/nvaccess/nvda/blob/release-2026.2/source/_bridge/clients/synthDriverHost32/launcher.py . The NVDA license and permissions are included as `licenses/NVDA-copying.txt`. No NVDA native binaries are included.
+
+NVDA is installed separately: https://github.com/nvaccess/nvda . Its runtime and enabled synthesizer add-ons are used locally, not copied into this distribution. The synthesis host relies on NVDA internal APIs; version-specific testing is required.
+
+Development guidance used: https://github.com/denis-skripnik/nvda-skill and https://github.com/web3blind/coding-skill . These skill repositories are not bundled or executed by the installed add-on.

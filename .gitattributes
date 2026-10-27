@@ -1,0 +1,14 @@
+# Preserve vendored upstream bytes; normalize source formats explicitly.
+* -text
+*.py text eol=lf
+*.md text eol=lf
+*.ini text eol=lf
+*.json text eol=lf
+*.dll -text
+*.pyd -text
+*.exe -text
+*.zip -text
+*.whl -text
+*.gz -text
+*.mo -text
+*.nvda-addon -text
