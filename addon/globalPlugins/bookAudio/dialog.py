@@ -22,6 +22,7 @@ class BookDialog(wx.Dialog):
         self.probing = False
         self.runner = None
         self.closePending = False
+        self.backgrounded = False
         self.workerThread = None
         self.workerThreads = {}
         self.voiceGeneration = 0
@@ -87,9 +88,11 @@ class BookDialog(wx.Dialog):
         wx.CallAfter(self.activate)
 
     def activate(self):
-        if self.alive:
+        if self.alive and self.IsShown():
             self.Raise()
-            (self.addButton if self.addButton.IsEnabled() else self.status).SetFocus()
+            target = self.status if self.backgrounded or not self.addButton.IsEnabled() else self.addButton
+            self.backgrounded = False
+            target.SetFocus()
 
     def on_key(self, event):
         if event.GetKeyCode() == wx.WXK_ESCAPE:
@@ -249,7 +252,8 @@ class BookDialog(wx.Dialog):
         if not error:
             self.progress.SetValue(100)
         self.update_controls()
-        self.status.SetFocus()
+        if self.IsShown():
+            self.status.SetFocus()
         # The focused read-only edit exposes completion/errors to NVDA without pop-ups.
 
     def on_probe(self, event):
@@ -305,6 +309,14 @@ class BookDialog(wx.Dialog):
             self.runner.cancel()
 
     def on_close(self, event):
+        if self.running and not self.probing:
+            # Keep the modeless dialog owned by the plug-in: its worker and
+            # progress callbacks remain alive while the window is hidden.
+            self.backgrounded = True
+            self.Hide()
+            if isinstance(event, wx.CloseEvent) and event.CanVeto():
+                event.Veto()
+            return
         if self.runner:
             self.closePending = True
             self.status.SetValue(_('Остановка и закрытие…'))

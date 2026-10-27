@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — Preview
+
+- Keep book conversion running when Escape, Close or the title-bar close button hides the window.
+- Reopen the existing job and its live progress through Tools or NVDA+Windows+A.
+- Keep hidden completion/failure unobtrusive and focus its saved result when reopened.
+- Preserve explicit Stop and cancellation on NVDA exit/add-on unload; no restart persistence is claimed.
+
 ## 0.1.2 — Preview
 
 - Add a private recording check for the selected driver, voice and rate.

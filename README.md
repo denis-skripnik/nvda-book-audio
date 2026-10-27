@@ -6,13 +6,13 @@ An accessible NVDA add-on for turning books into MP3 audiobooks.
 
 [Download the latest release](https://github.com/denis-skripnik/nvda-book-audio/releases) · [Russian documentation](README.ru.md) · [Compatibility notes](docs/COMPATIBILITY.md)
 
-Current version: **0.1.2 (preview)**.
+Current version: **0.1.3 (preview)**.
 
 Turn TXT, FB2, FB2.ZIP and text-based PDF documents into chapter MP3 files using synthesizers and voices installed in NVDA. This build targets **NVDA 2026.2, Windows x64, Python 3.13**. Python and MP3 encoding are included; no separate Python or FFmpeg installation is required.
 
 ## Open and configure
 
-Install `bookAudio-0.1.2.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
+Install `bookAudio-0.1.3.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
 
 The interface follows NVDA's language: Russian for Russian NVDA, English for English and other NVDA languages. Restart NVDA after changing its interface language. The add-on's internal identifier remains `bookAudio`, so this version updates the previous installation rather than creating a duplicate add-on.
 
@@ -22,9 +22,9 @@ The interface follows NVDA's language: Russian for Russian NVDA, English for Eng
 4. Select a synthesizer driver, wait for its voices and select a voice. Focus stays on the driver selector while voices load; if you move to another field, loading does not steal focus back. Changing drivers again cancels the obsolete request and discards late results.
 5. Set the **NVDA rate**, from 0 to 100. This is the driver's NVDA percentage scale, not words per minute. Rate boost is not enabled.
 6. Optionally choose **Verify recording**. The selected voice synthesizes a short phrase privately; the check requires nonempty, non-silent PCM and successful MP3 encoding. Nothing is played through the speakers and no test output is saved with your books. No input document or output folder is required. Changing driver, voice or rate invalidates the result. The check can be stopped. Success applies to those settings and a short phrase, not every voice or book.
-7. Choose **Start**. **Status** reports the current book and chapter. When conversion finishes, focus moves to this read-only field so NVDA can read the result.
+7. Choose **Start**. **Status** reports the current book and chapter. When conversion finishes with the window visible, focus moves to this read-only field so NVDA can read the result.
 
-Use Tab, arrow keys, Enter/Space and the labelled Alt shortcuts. **Stop** cancels the job and preserves finished MP3s. **Escape** or **Close** cancels active work before closing the window. A repeated open gesture raises the existing window instead of opening a duplicate.
+Use Tab, arrow keys, Enter/Space and the labelled Alt shortcuts. **Stop** cancels the job and preserves finished MP3s. **Escape**, **Close** and the window close button hide the window while book conversion continues in the background. Reopen it through Tools or NVDA+Windows+A to see the same job and its current status. Completion or failure while hidden does not pop up the window or steal focus; reopening focuses the saved result. Use **Stop** to interrupt a book. Exiting/restarting NVDA or unloading the add-on stops the job; jobs do not survive a restart. Voice discovery and short recording checks are still cancelled when their window closes. A repeated open gesture raises the existing window instead of opening a duplicate.
 
 ## Output
 

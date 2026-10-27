@@ -83,7 +83,8 @@ class CloseChecks(unittest.TestCase):
         return event
 
     def test_busy_close_defers_destruction_until_worker_finish(self):
-        for state in ('voices', 'conversion'):
+        # Voice discovery is disposable; a running book now hides instead.
+        for state in ('voices',):
             for kind in ('button', 'titlebar', 'escape'):
                 with self.subTest(state=state, event=kind):
                     dialog = dialog_module.BookDialog(None, [], {})

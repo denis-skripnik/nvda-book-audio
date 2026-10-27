@@ -10,14 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
-archive = ROOT / 'dist/bookAudio-0.1.2.nvda-addon'
+archive = ROOT / 'dist/bookAudio-0.1.3.nvda-addon'
 with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=ROOT) as temp:
     temp = Path(temp)
     worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': str(temp / 'parser'), 'addons': []})
     import addonHandler
     bundle = addonHandler.AddonBundle(str(archive))
     assert bundle.manifest['name'] == 'bookAudio'
-    assert bundle.manifest['version'] == '0.1.2'
+    assert bundle.manifest['version'] == '0.1.3'
     assert bundle.manifest.errors is None, bundle.manifest.errors
     unpacked = temp / 'unpacked'
     with zipfile.ZipFile(archive) as package:
