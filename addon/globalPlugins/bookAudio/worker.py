@@ -19,6 +19,23 @@ def emit(kind, **values):
     print(json.dumps(dict(type=kind, **values), ensure_ascii=True), flush=True)
 
 
+def preload_nvda_resources(nvda):
+    """Resolve frozen NVDA data relative to NVDA, not the private interpreter."""
+    import importlib
+    import importlib.util
+    if importlib.util.find_spec('pyphen') is None:
+        return
+    # NVDA 2026.3's frozen Pyphen computes its dictionaries directory from
+    # sys.executable at import time. Preload it before NVDAHelper imports
+    # braille/textUtils, then restore our real executable for subprocesses.
+    executable = sys.executable
+    try:
+        sys.executable = str(Path(nvda) / 'nvda.exe')
+        importlib.import_module('pyphen')
+    finally:
+        sys.executable = executable
+
+
 def bootstrap(request):
     # Select our catalog before validation; NVDA imports follow path bootstrap.
     import i18n
@@ -55,6 +72,7 @@ def bootstrap(request):
     # Installed NVDA relocates this resource outside library.zip.
     import certifi
     certifi.where = lambda: str(nvda / 'cacert.pem')
+    preload_nvda_resources(nvda)
     import NVDAHelper
     # OneCore's native helper logs during initialization. Its callback is
     # normally installed by NVDAHelper.initialize(), which also starts remote
@@ -103,6 +121,8 @@ def render(driver, handler, text, voice, rate):
         driver.voice = voice
     driver.rate = int(rate)
     if hasattr(driver, 'volume'):
+        # Keep synthesis at its original level; drivers may implement volume
+        # only through playback-device APIs. Export gain belongs in WaveSink.
         driver.volume = 100
     handler.synthDoneSpeaking.register(on_done)
     try:
@@ -126,6 +146,8 @@ def render(driver, handler, text, voice, rate):
 
 def verify_voice_recording(driver, handler, request, sink):
     """Check the selected settings with actual, private PCM and MP3 output."""
+    if request.get('volume', 100) == 0:
+        raise ValueError(_('Для проверки голоса установите громкость выше 0.'))
     import wave
     from encoder import encode_wav
     wav = Path(request['config']) / 'voice-check.wav'
@@ -155,7 +177,7 @@ def verify_voice_recording(driver, handler, request, sink):
         raise RuntimeError(_('Не удалось создать MP3 при проверке записи.'))
     return dict(
         status='verified', driver=request['driver'], voice=driver.voice,
-        rate=int(request['rate']), effectiveRate=int(driver.rate),
+        rate=int(request['rate']), effectiveRate=int(driver.rate), volume=request.get('volume', 100),
         frames=sink.frames, sampleRate=sample_rate,
         mp3Bytes=mp3_bytes,
     )
@@ -167,7 +189,7 @@ def main(request):
     app = wx.App(False)
     import nvwave
     from capture import WaveSink, make_player
-    sink = WaveSink(Path(request['config']) / 'unused.wav')
+    sink = WaveSink(Path(request['config']) / 'unused.wav', volume=request.get('volume', 100))
     nvwave.WavePlayer = make_player(sink)
     import speechDictHandler
     speechDictHandler.initialize()

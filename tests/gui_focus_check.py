@@ -13,7 +13,7 @@ PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
 _host = tempfile.TemporaryDirectory(prefix='gui-focus-', dir=os.environ['TMPDIR'])
-worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': str(Path(_host.name) / 'config'), 'addons': []})
+worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(Path(_host.name) / 'config'), 'addons': []})
 import wx
 import gui
 sys.path.insert(0, str(PLUGIN.parent))

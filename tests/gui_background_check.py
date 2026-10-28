@@ -1,5 +1,6 @@
 """Native modeless-window background conversion checks, isolated from live NVDA."""
 from pathlib import Path
+import os
 import sys
 import unittest
 from unittest.mock import patch
@@ -160,7 +161,7 @@ class BackgroundChecks(unittest.TestCase):
         self.dialog.destroy_dialog()
         with patch.object(dialog_module, 'WorkerClient', WorkerClient):
             self.dialog = dialog_module.BookDialog(None, [('espeak', 'eSpeak NG')],
-                {'nvda': 'C:/Program Files/NVDA', 'addons': [], 'driver': 'espeak', 'rate': 50})
+                {'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'addons': [], 'driver': 'espeak', 'rate': 50})
             d = self.dialog
             d.Show()
             self.pump(lambda: not d.loadingVoices)

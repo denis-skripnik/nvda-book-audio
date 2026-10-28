@@ -22,7 +22,7 @@ import wave
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 PYTHON = PLUGIN / 'runtime/python.exe'
-NVDA = Path('C:/Program Files/NVDA')
+NVDA = Path(os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'))
 FIXTURE = os.environ.get('BOOK_AUDIO_NEWFON_FIXTURE')
 JOBS = os.environ.get('BOOK_AUDIO_NEWFON_JOBS')
 

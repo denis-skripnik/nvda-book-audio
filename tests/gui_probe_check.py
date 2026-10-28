@@ -1,5 +1,6 @@
 """Native wx recording-verification checks; isolated config, never live NVDA."""
 from pathlib import Path
+import os
 import sys
 import threading
 import unittest
@@ -24,7 +25,7 @@ class ProbeRunner(host.ControlledRunner):
         if hasattr(self, 'result'):
             return self.result
         return {'type': 'compatibility', 'status': 'verified', 'driver': request['driver'],
-                'voice': request['voice'], 'rate': request['rate'], 'frames': 1000,
+                'voice': request['voice'], 'rate': request['rate'], 'volume': request['volume'], 'frames': 1000,
                 'sampleRate': 22050, 'mp3Bytes': 800}
 
 
@@ -62,7 +63,7 @@ class ProbeChecks(unittest.TestCase):
         d.on_probe(None)
         runner = self.runners[-1]
         self.pump(lambda: runner.started.is_set())
-        self.assertEqual(runner.request, dict(d.context, action='probe', driver='a', voice='two', rate=37))
+        self.assertEqual(runner.request, dict(d.context, action='probe', driver='a', voice='two', rate=37, volume=100))
         self.assertEqual(d.paths, [])
         self.assertEqual(d.output.GetValue(), '')
         self.assertIn('Проверка', d.probeStatus.GetValue())
@@ -115,7 +116,7 @@ class ProbeChecks(unittest.TestCase):
                 runner = self.runners[-1]
                 self.pump(lambda: runner.started.is_set())
                 runner.result = dict(type='compatibility', status='verified', driver='a',
-                                     voice='one', rate=37, frames=100, sampleRate=22050, mp3Bytes=800)
+                                     voice='one', rate=37, volume=100, frames=100, sampleRate=22050, mp3Bytes=800)
                 runner.result.update(replacement)
                 runner.release.set()
                 self.pump(lambda: not self.dialog.running)
@@ -273,7 +274,7 @@ class ProbeChecks(unittest.TestCase):
         self.pump(lambda: not bool(self.dialog))
         self.patcher.stop()
         d = self.dialog = dialog_module.BookDialog(None, [('espeak', 'eSpeak NG')],
-            {'nvda': 'C:/Program Files/NVDA', 'addons': [], 'language': 'ru', 'rate': 50})
+            {'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'addons': [], 'language': 'ru', 'rate': 50})
         d.Show()
         self.pump(lambda: not d.loadingVoices)
         self.assertTrue(d.voiceItems, d.status.GetValue())

@@ -1,5 +1,6 @@
 """Exercise Russian and English native controls and status messages."""
 from pathlib import Path
+import os
 import sys
 import tempfile
 import types
@@ -8,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
-with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=ROOT) as temp:
-    worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': temp, 'addons': [], 'language': 'en'})
+with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=os.environ['TMPDIR']) as temp:
+    worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': temp, 'addons': [], 'language': 'en'})
     import languageHandler
     languageHandler.setLanguage('en')
     import wx

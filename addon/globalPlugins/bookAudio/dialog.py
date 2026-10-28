@@ -43,10 +43,11 @@ class BookDialog(wx.Dialog):
         self.drivers = helper.addLabeledControl(_('Драйвер &синтезатора:'), wx.Choice, choices=[label for name, label in drivers])
         self.voice = helper.addLabeledControl(_('&Голос:'), wx.Choice)
         self.rate = helper.addLabeledControl(_('С&корость NVDA, от 0 до 100:'), wx.SpinCtrl, min=0, max=100, initial=int(context.get('rate', 50)))
+        self.volume = helper.addLabeledControl(_('Г&ромкость, от 0 до 100:'), wx.SpinCtrl, min=0, max=100, initial=100)
         self.probeButton = wx.Button(self, label=_('Проверить запись'))
         outer.Add(self.probeButton, 0, wx.TOP, 8)
         self.probeStatus = helper.addLabeledControl(_('Проверка записи:'), wx.TextCtrl,
-                                                   value=_('Запись не проверена для выбранного драйвера, голоса и скорости.'),
+                                                   value=_('Запись не проверена для выбранного драйвера, голоса, скорости и громкости.'),
                                                    style=wx.TE_READONLY)
         self.progress = wx.Gauge(self, range=100)
         self.progress.SetName(_('Выполнено в текущем файле'))
@@ -70,6 +71,8 @@ class BookDialog(wx.Dialog):
         self.voice.Bind(wx.EVT_CHOICE, self.invalidate_probe)
         self.rate.Bind(wx.EVT_SPINCTRL, self.invalidate_probe)
         self.rate.Bind(wx.EVT_TEXT, self.invalidate_probe)
+        self.volume.Bind(wx.EVT_SPINCTRL, self.invalidate_probe)
+        self.volume.Bind(wx.EVT_TEXT, self.invalidate_probe)
         self.startButton.Bind(wx.EVT_BUTTON, self.on_start)
         self.probeButton.Bind(wx.EVT_BUTTON, self.on_probe)
         self.cancelButton.Bind(wx.EVT_BUTTON, self.on_cancel)
@@ -134,7 +137,7 @@ class BookDialog(wx.Dialog):
 
     def update_controls(self):
         busy = self.running or self.loadingVoices
-        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.separator, self.drivers, self.rate):
+        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.separator, self.drivers, self.rate, self.volume):
             control.Enable(not self.running)
         self.voice.Enable(not busy and bool(self.voiceItems))
         self.startButton.Enable(not busy and bool(self.voiceItems))
@@ -232,7 +235,7 @@ class BookDialog(wx.Dialog):
             return
         request = dict(self.context, action='convert', files=list(self.paths), output=self.output.GetValue(),
                        separator=self.separator.GetValue(), driver=self.driverItems[self.drivers.GetSelection()][0],
-                       voice=self.voiceItems[self.voice.GetSelection()]['id'], rate=self.rate.GetValue())
+                       voice=self.voiceItems[self.voice.GetSelection()]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue())
         self.running = True
         self.progress.SetValue(0)
         self.status.SetValue(_('Начинается создание аудиокниг…'))
@@ -263,8 +266,12 @@ class BookDialog(wx.Dialog):
         driver = self.drivers.GetSelection()
         if index == wx.NOT_FOUND or driver == wx.NOT_FOUND:
             return
+        if self.volume.GetValue() == 0:
+            self.probeStatus.SetValue(_('Для проверки голоса установите громкость выше 0.'))
+            self.volume.SetFocus()
+            return
         request = dict(self.context, action='probe', driver=self.driverItems[driver][0],
-                       voice=self.voiceItems[index]['id'], rate=self.rate.GetValue())
+                       voice=self.voiceItems[index]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue())
         self.probeRequest = request
         self.probeCancelled = False
         self.running = self.probing = True
@@ -274,7 +281,7 @@ class BookDialog(wx.Dialog):
 
     def invalidate_probe(self, event=None):
         if self.alive and not self.closePending:
-            self.probeStatus.SetValue(_('Запись не проверена для выбранного драйвера, голоса и скорости.'))
+            self.probeStatus.SetValue(_('Запись не проверена для выбранного драйвера, голоса, скорости и громкости.'))
         if event is not None:
             event.Skip()
 
@@ -291,13 +298,13 @@ class BookDialog(wx.Dialog):
         if not error and not (
             isinstance(result, dict) and result.get('type') == 'compatibility'
             and result.get('status') == 'verified'
-            and all(result.get(key) == self.probeRequest[key] for key in ('driver', 'voice', 'rate'))
+            and all(result.get(key) == self.probeRequest[key] for key in ('driver', 'voice', 'rate', 'volume'))
             and all(type(result.get(key)) is int and result[key] > 0
                     for key in ('frames', 'sampleRate', 'mp3Bytes'))
         ):
             error = _('Процесс проверки не подтвердил запись выбранного голоса.')
         self.probeStatus.SetValue(_('Ошибка проверки записи: ') + error if error else
-                                  _('Запись проверена для выбранного драйвера, голоса и скорости.'))
+                                  _('Запись проверена для выбранного драйвера, голоса, скорости и громкости.'))
         self.update_controls()
 
     def on_cancel(self, event):

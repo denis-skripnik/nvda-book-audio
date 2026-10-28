@@ -1,5 +1,6 @@
 """Real wx close/cancel regressions in an isolated host, never live NVDA."""
 from pathlib import Path
+import os
 import sys
 import tempfile
 import threading
@@ -15,7 +16,7 @@ import worker
 
 # Use Hermes scratch, not NVDA's user profile or a system temporary directory.
 _host = tempfile.TemporaryDirectory(prefix='gui-close-', dir=ROOT.parent)
-worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': str(Path(_host.name) / 'config'), 'addons': []})
+worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(Path(_host.name) / 'config'), 'addons': []})
 import wx
 
 pkg = types.ModuleType('bookAudio')

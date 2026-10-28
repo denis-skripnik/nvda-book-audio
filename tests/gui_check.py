@@ -1,6 +1,7 @@
 """Real wx acceptance test in a separate process; does not install into NVDA."""
 import json
 from pathlib import Path
+import os
 import sys
 import types
 import time
@@ -14,7 +15,7 @@ if not (PLUGIN / 'dialog.py').exists():
 import worker
 test_temp = tempfile.TemporaryDirectory(prefix='gui-check-', dir=ROOT)
 folder = Path(test_temp.name)
-context = {'nvda': 'C:/Program Files/NVDA', 'config': str(folder / 'host-config'), 'addons': [], 'driver': 'sapi5', 'action': 'voices'}
+context = {'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(folder / 'host-config'), 'addons': [], 'driver': 'sapi5', 'action': 'voices'}
 worker.bootstrap(context)
 import wx
 app = wx.App(False)

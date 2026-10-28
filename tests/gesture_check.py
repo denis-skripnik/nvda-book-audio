@@ -1,5 +1,6 @@
 """Native NVDA gesture registration smoke test in an isolated wx host."""
 from pathlib import Path
+import os
 import sys
 import tempfile
 
@@ -8,7 +9,7 @@ PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
 with tempfile.TemporaryDirectory(prefix='bookAudio-gesture-', dir=ROOT) as temp:
-    worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': temp, 'addons': []})
+    worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': temp, 'addons': []})
     import wx
     import gui
     import keyboardHandler

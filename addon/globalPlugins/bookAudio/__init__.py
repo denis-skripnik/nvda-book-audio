@@ -39,7 +39,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             self.dialog.activate()
             return
         if sys.version_info[:2] != (3, 13) or struct.calcsize('P') != 8:
-            gui.messageBox(_('Эта сборка рассчитана на NVDA с Python 3.13 x64 (проверена NVDA 2026.2). Нужна подходящая сборка дополнения.'), 'Book Audio', wx.OK | wx.ICON_ERROR)
+            gui.messageBox(_('Эта сборка рассчитана на NVDA с Python 3.13 x64 (проверены NVDA 2026.2 и 2026.3). Нужна подходящая сборка дополнения.'), 'Book Audio', wx.OK | wx.ICON_ERROR)
             return
         current = synthDriverHandler.getSynth()
         context = {

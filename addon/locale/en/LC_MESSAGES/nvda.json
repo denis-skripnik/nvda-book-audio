@@ -37,7 +37,7 @@
   "Book Audio — текст в MP3": "Book Audio — Text to MP3",
   "Book Audio — текст в MP3…": "Book Audio — Text to MP3…",
   "Открыть окно Book Audio": "Open the Book Audio window",
-  "Эта сборка рассчитана на NVDA с Python 3.13 x64 (проверена NVDA 2026.2). Нужна подходящая сборка дополнения.": "This build requires NVDA with Python 3.13 x64 (tested with NVDA 2026.2). Please use a matching add-on build.",
+  "Эта сборка рассчитана на NVDA с Python 3.13 x64 (проверены NVDA 2026.2 и 2026.3). Нужна подходящая сборка дополнения.": "This build requires NVDA with Python 3.13 x64 (tested with NVDA 2026.2 and 2026.3). Please use a matching add-on build.",
   "Файлы в порядке обработки:": "Files in processing order:",
   "&Добавить файлы…": "&Add files…",
   "&Удалить выбранный": "&Remove selected",
@@ -80,5 +80,12 @@
   "Проверка записи остановлена. Запись не проверена.": "Recording verification stopped. Recording not yet verified.",
   "Проверка записи голоса.": "Voice recording test.",
   "Синтезатор передал только тишину. Выберите другой голос.": "The synthesizer produced only silence. Choose another voice.",
+  "Громкость, от 0 до 100:": "Volume, from 0 to 100:",
+  "Г&ромкость, от 0 до 100:": "Vo&lume, from 0 to 100:",
+  "Для проверки голоса установите громкость выше 0.": "Set the volume above 0 to verify the voice.",
+  "Громкость должна быть целым числом от 0 до 100.": "Volume must be an integer from 0 to 100.",
+  "Драйвер передал неполный аудиокадр.": "The driver provided an incomplete audio frame.",
+  "Запись не проверена для выбранного драйвера, голоса, скорости и громкости.": "Recording not yet verified for the selected driver, voice, rate and volume.",
+  "Запись проверена для выбранного драйвера, голоса, скорости и громкости.": "Recording verified for the selected driver, voice, rate and volume.",
   "Не удалось создать MP3 при проверке записи.": "Could not create an MP3 during the recording test."
 }

@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -8,7 +9,7 @@ import wave
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 PYTHON = PLUGIN / 'runtime/python.exe'
-NVDA = Path('C:/Program Files/NVDA')
+NVDA = Path(os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'))
 
 @unittest.skipUnless(NVDA.exists() and PYTHON.exists(), 'Installed NVDA x64 integration test')
 class RuntimeTests(unittest.TestCase):
@@ -79,6 +80,26 @@ class RuntimeTests(unittest.TestCase):
             with wave.open(str(wav)) as audio:
                 self.assertGreater(audio.getnframes(), 1000)
                 self.assertTrue(any(audio.readframes(audio.getnframes())))
+
+    def test_frozen_resources_use_nvda_directory_and_restore_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            request = Path(tmp) / 'resources.json'
+            request.write_text(json.dumps({'nvda': str(NVDA), 'config': tmp, 'addons': []}), encoding='utf-8')
+            script = (
+                'import sys,json,importlib.util; from pathlib import Path\n'
+                f'sys.path.insert(0, {str(PLUGIN)!r})\n'
+                'import worker\noriginal = sys.executable\n'
+                f'worker.bootstrap(json.loads(Path({str(request)!r}).read_text(encoding="utf-8")))\n'
+                'assert sys.executable == original\n'
+                'if importlib.util.find_spec("pyphen") is not None:\n'
+                ' import pyphen\n'
+                f' assert pyphen.dictionaries.resolve() == (Path({str(NVDA)!r}) / "pyphenDictionaries").resolve()\n'
+                ' assert pyphen.LANGUAGES and all(p.is_file() for p in pyphen.LANGUAGES.values())\n'
+                'print("FROZEN_RESOURCE_CHECK_OK")\n'
+            )
+            result = subprocess.run([str(PYTHON), '-c', script], capture_output=True, timeout=25)
+            self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', 'replace'))
+            self.assertIn(b'FROZEN_RESOURCE_CHECK_OK', result.stdout)
 
     def test_enumerate_sapi_voices_in_separate_process(self):
         events = self.run_worker('sapi5', 'voices')

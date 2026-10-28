@@ -1,6 +1,6 @@
 # Synthesizer compatibility
 
-Target: NVDA 2026.2, Windows x64, Python 3.13. Other targets are not claimed supported.
+Target: NVDA 2026.2 and 2026.3, Windows x64, Python 3.13. Other targets are not claimed supported.
 
 | Driver | Verification |
 |---|---|

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
@@ -7,7 +8,7 @@ sys.path.insert(0, str(PLUGIN))
 if not (PLUGIN / '__init__.py').exists():
     raise AssertionError('NVDA Tools menu plug-in is not implemented')
 import worker
-worker.bootstrap({'nvda': 'C:/Program Files/NVDA', 'config': str(ROOT / 'plugin-test-config'), 'addons': []})
+worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(ROOT / 'plugin-test-config'), 'addons': []})
 import wx
 import gui
 app = wx.App(False)

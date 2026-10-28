@@ -5,13 +5,18 @@ if __package__:
 else:
     from i18n import _
 import ctypes
+from array import array
+import sys
 import threading
 import wave
 
 
 class WaveSink:
-    def __init__(self, path):
+    def __init__(self, path, volume=100):
         self.path = str(path)
+        if type(volume) is not int or not 0 <= volume <= 100:
+            raise ValueError(_('Громкость должна быть целым числом от 0 до 100.'))
+        self.volume = volume
         self._wav = None
         self._format = None
         self._lock = threading.RLock()
@@ -29,6 +34,21 @@ class WaveSink:
             if fmt != self._format:
                 self.error = _('Драйвер изменил формат звука внутри главы. Выберите другой голос.')
                 return
+            if self.volume != 100:
+                if fmt[2] != 16:
+                    self.error = _('Синтезатор выдал не 16-битный PCM; этот формат пока не поддерживается.')
+                    return
+                if len(data) % (fmt[0] * 2):
+                    self.error = _('Драйвер передал неполный аудиокадр.')
+                    return
+                samples = array('h')
+                samples.frombytes(data)
+                if sys.byteorder != 'little':
+                    samples.byteswap()
+                samples = array('h', (int(value * self.volume / 100) for value in samples))
+                if sys.byteorder != 'little':
+                    samples.byteswap()
+                data = samples.tobytes()
             self._wav.writeframesraw(data)
             self.frames += len(data) // (fmt[0] * (fmt[2] // 8))
 
