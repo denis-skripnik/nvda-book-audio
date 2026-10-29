@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=os.environ['T
     pkg.__path__ = [str(PLUGIN)]
     sys.modules['bookAudio'] = pkg
     from bookAudio.dialog import BookDialog
-    dialog = BookDialog(None, [], {'language': 'en'})
+    dialog = BookDialog(None, [], {'language': 'en'}, preferences_dir=False)
     try:
         assert dialog.GetTitle() == 'Book Audio — Text to MP3', 'English NVDA must select an English window title'
         assert dialog.startButton.GetLabel().replace('&', '') == 'Start'
@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=os.environ['T
         dialog.destroy_dialog()
     from bookAudio.i18n import set_language
     set_language('ru')
-    russian = BookDialog(None, [], {'language': 'ru'})
+    russian = BookDialog(None, [], {'language': 'ru'}, preferences_dir=False)
     try:
         assert russian.GetTitle() == 'Book Audio — текст в MP3'
         assert russian.startButton.GetLabel().replace('&', '') == 'Запуск'

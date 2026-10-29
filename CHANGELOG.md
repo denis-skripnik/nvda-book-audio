@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.7 — Preview
+
+- Add conditional additional comma/sentence pause controls (0–2000 ms, default zero) based on the loaded driver's advertised BreakCommand support. Hide/reset unsupported settings and reject nonzero unsupported requests in the worker.
+- Preserve literal text with conservative numeric, abbreviation, initial and punctuation-cluster handling; verify real PCM and multi-chapter MP3 behavior. Requested pause timing remains engine-dependent.
+- Persist output folder and synthesis/chapter settings across NVDA restarts in validated, atomic add-on-only preferences, without saving the input queue or resuming jobs.
+- Keep long-pause synthesis bounded with an adjusted deadline and heartbeats; handle empty-message voice-loading failures gracefully.
+
+## 0.1.6 — Preview
+
+- Fix clipping-prone recording volume: set native synthesis volume before capture, adopt the driver's initial level, and avoid duplicate gain. Honor per-player volume controls; retain PCM fallback for drivers without native volume.
+- Add MP3 bitrate choices 64/96/128/160/192 kbit/s (default 128), including recording verification and invalidation on changes.
+- Add a real RyanNeural regression that distinguishes prevented clipping from attenuated clipped peaks, and independently verify actual encoded bitrate.
+- Keep punctuation-pause settings unavailable pending driver-specific timing and text-boundary handling; document capability findings and limitations.
+
 ## 0.1.5 — Preview
 
 - Add recording volume 0–100 immediately after rate in the dialog and keyboard navigation.

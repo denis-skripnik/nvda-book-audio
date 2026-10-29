@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 ADDON = ROOT / 'addon'
-VERSION = '0.1.5'
+VERSION = '0.1.7'
 
 
 def html_document(markdown, language='ru'):

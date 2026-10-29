@@ -72,7 +72,7 @@ class FocusChecks(unittest.TestCase):
             return runner
         self.patcher = patch.object(dialog_module, 'WorkerClient', side_effect=factory)
         self.patcher.start()
-        self.dialog = dialog_module.BookDialog(None, [('a', 'Driver A'), ('b', 'Driver B'), ('c', 'Driver C')], {})
+        self.dialog = dialog_module.BookDialog(None, [('a', 'Driver A'), ('b', 'Driver B'), ('c', 'Driver C')], {}, preferences_dir=False)
         self.dialog.Show()
         self.pump(lambda: self.runners[0].started.is_set())
         self.runners[0].release.set()

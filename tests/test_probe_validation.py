@@ -43,13 +43,13 @@ class ProbeValidationTests(unittest.TestCase):
             self.run_fixture(b'\x00\x00' * 4000)
 
     def test_encoder_error_is_not_hidden(self):
-        def fail(source, destination):
+        def fail(source, destination, bitrate=128):
             raise OSError('fixture encoder failure')
         with self.assertRaisesRegex(OSError, 'fixture encoder failure'):
             self.run_fixture(b'\x01\x00' * 4000, fail)
 
     def test_empty_mp3_is_never_reported_verified(self):
-        def empty(source, destination):
+        def empty(source, destination, bitrate=128):
             Path(destination).write_bytes(b'')
         with self.assertRaisesRegex(RuntimeError, 'MP3'):
             self.run_fixture(b'\x01\x00' * 4000, empty)

@@ -26,7 +26,8 @@ class ProbeRunner(host.ControlledRunner):
             return self.result
         return {'type': 'compatibility', 'status': 'verified', 'driver': request['driver'],
                 'voice': request['voice'], 'rate': request['rate'], 'volume': request['volume'], 'frames': 1000,
-                'sampleRate': 22050, 'mp3Bytes': 800}
+                'sampleRate': 22050, 'mp3Bytes': 800, 'bitrate': request['bitrate'],
+                'commaPauseMs': request.get('commaPauseMs', 0), 'sentencePauseMs': request.get('sentencePauseMs', 0)}
 
 
 class ProbeChecks(unittest.TestCase):
@@ -46,7 +47,7 @@ class ProbeChecks(unittest.TestCase):
         self.patcher = patch.object(dialog_module, 'WorkerClient', side_effect=factory)
         self.patcher.start()
         self.dialog = dialog_module.BookDialog(None, [('a', 'Driver A'), ('b', 'Driver B')],
-                                              {'language': 'ru', 'rate': 37, 'nvda': 'isolated-nvda', 'addons': []})
+                                              {'language': 'ru', 'rate': 37, 'nvda': 'isolated-nvda', 'addons': []}, preferences_dir=False)
         self.dialog.Show()
         self.pump(lambda: self.runners[0].started.is_set())
         self.runners[0].release.set()
@@ -63,7 +64,8 @@ class ProbeChecks(unittest.TestCase):
         d.on_probe(None)
         runner = self.runners[-1]
         self.pump(lambda: runner.started.is_set())
-        self.assertEqual(runner.request, dict(d.context, action='probe', driver='a', voice='two', rate=37, volume=100))
+        self.assertEqual(runner.request, dict(d.context, action='probe', driver='a', voice='two', rate=37, volume=100, bitrate=128,
+                                              commaPauseMs=0, sentencePauseMs=0))
         self.assertEqual(d.paths, [])
         self.assertEqual(d.output.GetValue(), '')
         self.assertIn('Проверка', d.probeStatus.GetValue())
@@ -116,7 +118,8 @@ class ProbeChecks(unittest.TestCase):
                 runner = self.runners[-1]
                 self.pump(lambda: runner.started.is_set())
                 runner.result = dict(type='compatibility', status='verified', driver='a',
-                                     voice='one', rate=37, volume=100, frames=100, sampleRate=22050, mp3Bytes=800)
+                                     voice='one', rate=37, volume=100, frames=100, sampleRate=22050, mp3Bytes=800,
+                                     bitrate=128, commaPauseMs=0, sentencePauseMs=0)
                 runner.result.update(replacement)
                 runner.release.set()
                 self.pump(lambda: not self.dialog.running)
@@ -195,7 +198,7 @@ class ProbeChecks(unittest.TestCase):
         self.dialog.destroy_dialog()
         self.pump(lambda: not bool(self.dialog))
         set_language('en')
-        d = self.dialog = dialog_module.BookDialog(None, [('a', 'Driver A')], {'language': 'en'})
+        d = self.dialog = dialog_module.BookDialog(None, [('a', 'Driver A')], {'language': 'en'}, preferences_dir=False)
         d.Show()
         self.runners[-1].release.set()
         self.pump(lambda: not d.loadingVoices)
@@ -274,7 +277,7 @@ class ProbeChecks(unittest.TestCase):
         self.pump(lambda: not bool(self.dialog))
         self.patcher.stop()
         d = self.dialog = dialog_module.BookDialog(None, [('espeak', 'eSpeak NG')],
-            {'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'addons': [], 'language': 'ru', 'rate': 50})
+            {'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'addons': [], 'language': 'ru', 'rate': 50}, preferences_dir=False)
         d.Show()
         self.pump(lambda: not d.loadingVoices)
         self.assertTrue(d.voiceItems, d.status.GetValue())

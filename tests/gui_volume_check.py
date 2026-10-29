@@ -16,6 +16,22 @@ class VolumeChecks(unittest.TestCase):
     tearDown = host.FocusChecks.tearDown
     pump = host.FocusChecks.pump
 
+    def test_voice_discovery_adopts_native_volume_without_stealing_focus(self):
+        d = self.dialog
+        d.rate.SetFocus()
+        d.voices_finished({'voices': [{'id': 'one', 'name': 'Voice one'}], 'volume': 50}, None)
+        self.assertEqual(d.volume.GetValue(), 50)
+        self.assertEqual(wx.Window.FindFocus(), d.rate)
+
+    def test_user_volume_edit_is_not_overwritten_by_voice_completion(self):
+        d = self.dialog
+        d.volume.SetValue(63)
+        event = wx.CommandEvent(wx.EVT_TEXT.typeId, d.volume.GetId())
+        event.SetEventObject(d.volume)
+        d.volume.GetEventHandler().ProcessEvent(event)
+        d.voices_finished({'voices': [{'id': 'one', 'name': 'Voice one'}], 'volume': 50}, None)
+        self.assertEqual(d.volume.GetValue(), 63)
+
     def test_native_volume_range_default_label_and_tab_after_rate(self):
         d = self.dialog
         self.assertTrue(hasattr(d, 'volume'), 'Missing accessible output-volume control')
@@ -109,7 +125,8 @@ class VolumeChecks(unittest.TestCase):
                 runner = self.runners[-1]
                 self.pump(lambda: runner.started.is_set())
                 runner.result = dict(type='compatibility', status='verified', driver='a',
-                                     voice='one', rate=37, frames=100, sampleRate=22050, mp3Bytes=800)
+                                     voice='one', rate=37, frames=100, sampleRate=22050, mp3Bytes=800,
+                                     bitrate=128, commaPauseMs=0, sentencePauseMs=0)
                 if returned is not None:
                     runner.result['volume'] = returned
                 runner.release.set()
@@ -142,7 +159,7 @@ class VolumeChecks(unittest.TestCase):
                 self.dialog.destroy_dialog()
                 self.pump(lambda: not bool(self.dialog))
                 set_language(language)
-                d = self.dialog = probe.dialog_module.BookDialog(None, [('a', 'Driver A')], {'language': language})
+                d = self.dialog = probe.dialog_module.BookDialog(None, [('a', 'Driver A')], {'language': language}, preferences_dir=False)
                 d.Show()
                 self.runners[-1].release.set()
                 self.pump(lambda: not d.loadingVoices)

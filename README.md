@@ -6,13 +6,13 @@ An accessible NVDA add-on for turning books into MP3 audiobooks.
 
 [Download the latest release](https://github.com/denis-skripnik/nvda-book-audio/releases) · [Russian documentation](README.ru.md) · [Compatibility notes](docs/COMPATIBILITY.md)
 
-Current version: **0.1.5 (preview)**.
+Current version: **0.1.7 (preview)**.
 
 Turn TXT, FB2, FB2.ZIP and text-based PDF documents into chapter MP3 files using synthesizers and voices installed in NVDA. This build targets **NVDA 2026.2 or 2026.3, Windows x64, Python 3.13**. Python and MP3 encoding are included; no separate Python or FFmpeg installation is required.
 
 ## Open and configure
 
-Install `bookAudio-0.1.5.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
+Install `bookAudio-0.1.7.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
 
 The interface follows NVDA's language: Russian for Russian NVDA, English for English and other NVDA languages. Restart NVDA after changing its interface language. The add-on's internal identifier remains `bookAudio`, so this version updates the previous installation rather than creating a duplicate add-on.
 
@@ -21,15 +21,23 @@ The interface follows NVDA's language: Russian for Russian NVDA, English for Eng
 3. Enter a chapter separator such as `Chapter`. The phrase is literal, case-insensitive and matched at the beginning of a line. Headings remain in the spoken text. Text before the first heading becomes a separate preface. An empty separator or no matches produces one MP3 for the entire document.
 4. Select a synthesizer driver, wait for its voices and select a voice. Focus stays on the driver selector while voices load; if you move to another field, loading does not steal focus back. Changing drivers again cancels the obsolete request and discards late results.
 5. Set the **NVDA rate**, from 0 to 100. This is the driver's NVDA percentage scale, not words per minute. Rate boost is not enabled.
-6. Set **Volume** from 0 to 100, immediately after rate. The default is 100 (original level). This controls exported audio, not the main NVDA speech volume. Zero produces muted files; select a value above zero to verify a voice. The setting is applied to captured audio for consistent behavior across compatible drivers and cannot be changed during an active job.
-7. Optionally choose **Verify recording**. The selected voice synthesizes a short phrase privately; the check requires nonempty, non-silent PCM and successful MP3 encoding. Nothing is played through the speakers and no test output is saved with your books. No input document or output folder is required. Changing driver, voice, rate or recording volume invalidates the result. The check can be stopped. Success applies to those settings and a short phrase, not every voice or book.
-8. Choose **Start**. **Status** reports the current book and chapter. When conversion finishes with the window visible, focus moves to this read-only field so NVDA can read the result.
+6. Set **Volume** from 0 to 100, immediately after rate. The initial value comes from the selected driver in the private worker (for example, 50 for Neural Voices and RHVoice); it is not forced to 100. Volume is applied through the synthesizer before capture, without a second copy of the same gain. Player-based volume controls are honored; drivers without native volume use a PCM fallback. Main NVDA speech settings remain unchanged. Different drivers can have different, nonlinear volume scales. Zero produces muted files; voice verification requires a positive value. Settings cannot be changed during an active job.
+7. Select the **MP3 bitrate**: 64, 96, 128, 160 or 192 kbit/s. The default remains 128. A lower bitrate reduces file size, but does not repair distortion already present in synthesis.
+8. If the selected driver advertises native pause commands, two additional controls appear after bitrate: **additional comma pause** and **additional sentence pause**, each 0–2000 ms, default 0. Zero leaves that category unchanged. These are requested extra pauses, not an exact replacement of engine punctuation timing; speech rate and engine prosody can affect the measured gap. Numbers, common abbreviations and initials are conservatively protected, but text-boundary handling is heuristic, not complete language understanding. Unsupported drivers hide these fields and discard stale values.
+9. Optionally choose **Verify recording**. The selected voice synthesizes a short phrase privately; the check requires nonempty, non-silent PCM and successful MP3 encoding. Nothing is played through the speakers and no test output is saved with your books. No input document or output folder is required. Changing driver, voice, rate, volume, bitrate or pause settings invalidates the result. The check can be stopped. Success applies to those settings and a short phrase, not every voice or book.
+10. Choose **Start**. **Status** reports the current book and chapter. When conversion finishes with the window visible, focus moves to this read-only field so NVDA can read the result.
 
 Use Tab, arrow keys, Enter/Space and the labelled Alt shortcuts. **Stop** cancels the job and preserves finished MP3s. **Escape**, **Close** and the window close button hide the window while book conversion continues in the background. Reopen it through Tools or NVDA+Windows+A to see the same job and its current status. Completion or failure while hidden does not pop up the window or steal focus; reopening focuses the saved result. Use **Stop** to interrupt a book. Exiting/restarting NVDA or unloading the add-on stops the job; jobs do not survive a restart. Voice discovery and short recording checks are still cancelled when their window closes. A repeated open gesture raises the existing window instead of opening a duplicate.
 
+## Saved settings
+
+Book Audio remembers the output folder, chapter separator, selected available driver and voice, rate, volume, bitrate and supported pause settings across dialog reopening and NVDA restarts. Preferences are stored separately in `bookAudio.json` inside NVDA's configuration directory; saving them does not change the main synthesizer or force-save unrelated NVDA settings. Missing output folders are retained so an offline drive does not erase your choice; normal output-folder validation still applies before conversion.
+
+This does not save the input-file queue or resume an interrupted conversion after NVDA exits. An unavailable saved driver or voice falls back to an available choice; unsupported pause settings are not applied.
+
 ## Output
 
-Each input book gets a new subfolder. Files are numbered, for example `001 - Preface.mp3` and `002 - Chapter 1.mp3`. Existing folders cause a new name such as `Book (2)` to be chosen; completed files are never overwritten. Both extensions are removed from the folder name for `.fb2.zip` input. MP3 is encoded with LAME at a target bitrate of 128 kbit/s; the voice determines sample rate and channel count.
+Each input book gets a new subfolder. Files are numbered, for example `001 - Preface.mp3` and `002 - Chapter 1.mp3`. Existing folders cause a new name such as `Book (2)` to be chosen; completed files are never overwritten. Both extensions are removed from the folder name for `.fb2.zip` input. MP3 is encoded with LAME at the selected target bitrate (default 128 kbit/s); the voice determines sample rate and channel count.
 
 Cancellation or an error stops the queue. Finished chapters remain; incomplete `.mp3.part` files are removed. Empty output folders may remain. Restarting a job starts from the beginning in fresh folders; there is no resume function.
 

@@ -16,7 +16,7 @@ On Windows, with Python installed:
 python build.py
 ```
 
-This compiles the English gettext catalog and produces `dist/bookAudio-0.1.5.nvda-addon`. Russian help is generated from `README.ru.md`, English help from `README.md`. No separate FFmpeg is needed at runtime.
+This compiles the English gettext catalog and produces `dist/bookAudio-0.1.7.nvda-addon`. Russian help is generated from `README.ru.md`, English help from `README.md`. No separate FFmpeg is needed at runtime.
 
 ## Test
 

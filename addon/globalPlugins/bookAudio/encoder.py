@@ -9,7 +9,12 @@ import sys
 import wave
 
 
-def encode_wav(source, destination):
+BITRATES = (64, 96, 128, 160, 192)
+
+
+def encode_wav(source, destination, bitrate=128):
+    if type(bitrate) is not int or bitrate not in BITRATES:
+        raise ValueError(_('Битрейт MP3 должен быть целым числом: 64, 96, 128, 160 или 192 кбит/с.'))
     sys.path.insert(0, str(Path(__file__).parent / 'vendor'))
     import lameenc
     destination = Path(destination)
@@ -21,7 +26,7 @@ def encode_wav(source, destination):
             if wav.getnchannels() not in (1, 2):
                 raise ValueError(_('Поддерживается только моно или стерео.'))
             encoder = lameenc.Encoder()
-            encoder.set_bit_rate(128)
+            encoder.set_bit_rate(bitrate)
             encoder.set_in_sample_rate(wav.getframerate())
             encoder.set_channels(wav.getnchannels())
             encoder.set_quality(2)

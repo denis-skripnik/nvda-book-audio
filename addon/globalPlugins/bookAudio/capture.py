@@ -6,8 +6,10 @@ else:
     from i18n import _
 import ctypes
 from array import array
+from numbers import Real
 import sys
 import threading
+from typing import Optional
 import wave
 
 
@@ -69,16 +71,44 @@ def make_player(sink):
             self.samplesPerSec = samplesPerSec
             self.bitsPerSample = bitsPerSample
             self._format = (channels, samplesPerSec, bitsPerSample)
+            self._gains = (1.0, 1.0)
 
         def feed(self, data, size=None, onDone=None):
             if not isinstance(data, bytes):
                 data = ctypes.string_at(data, size)
             elif size is not None:
                 data = data[:size]
-            if data:
+            try:
+                if not data:
+                    return
+                if self.bitsPerSample != 16:
+                    sink.error = _('Синтезатор выдал не 16-битный PCM; этот формат пока не поддерживается.')
+                    return
+                if self.channels not in (1, 2):
+                    sink.error = _('Поддерживается только моно или стерео.')
+                    return
+                if len(data) % (self.channels * 2):
+                    sink.error = _('Драйвер передал неполный аудиокадр.')
+                    return
+                # The engine may already have applied driver.volume. Only apply
+                # explicit stream gains; untouched players preserve its PCM exactly.
+                gains = self._gains
+                if gains != (1.0, 1.0):
+                    samples = array('h')
+                    samples.frombytes(data)
+                    if sys.byteorder != 'little':
+                        samples.byteswap()
+                    samples = array('h', (
+                        int(value * gains[index % self.channels])
+                        for index, value in enumerate(samples)
+                    ))
+                    if sys.byteorder != 'little':
+                        samples.byteswap()
+                    data = samples.tobytes()
                 sink.write(self._format, data)
-            if onDone:
-                onDone()
+            finally:
+                if onDone:
+                    onDone()
 
         def open(self):
             pass
@@ -98,8 +128,24 @@ def make_player(sink):
         def pause(self, switch):
             pass
 
-        def setVolume(self, *args, **kwargs):
-            pass
+        def setVolume(
+            self, *, all: Optional[float] = None,
+            left: Optional[float] = None, right: Optional[float] = None,
+        ):
+            if all is None and left is None and right is None:
+                raise ValueError('At least one of all, left or right must be specified')
+            if all is not None:
+                if left is not None or right is not None:
+                    raise ValueError('all specified, so left and right must not be specified')
+                left = right = all
+            for value in (left, right):
+                if value is not None and (not isinstance(value, Real) or not 0 <= value <= 1):
+                    raise ValueError('Volume must be a finite number between 0 and 1')
+            oldLeft, oldRight = self._gains
+            self._gains = (
+                oldLeft if left is None else left,
+                oldRight if right is None else right,
+            )
 
         def enableTrimmingLeadingSilence(self, *args, **kwargs):
             pass

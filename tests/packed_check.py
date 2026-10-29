@@ -11,14 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
-archive = ROOT / 'dist/bookAudio-0.1.5.nvda-addon'
+archive = ROOT / 'dist/bookAudio-0.1.7.nvda-addon'
 with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get('TMPDIR')) as temp:
     temp = Path(temp)
     worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(temp / 'parser'), 'addons': []})
     import addonHandler
     bundle = addonHandler.AddonBundle(str(archive))
     assert bundle.manifest['name'] == 'bookAudio'
-    assert bundle.manifest['version'] == '0.1.5'
+    assert bundle.manifest['version'] == '0.1.7'
     assert bundle.manifest.errors is None, bundle.manifest.errors
     unpacked = temp / 'unpacked'
     with zipfile.ZipFile(archive) as package:
@@ -31,7 +31,9 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get(
         book.writestr('nested/book.fb2', '<FictionBook><body><section><title><p>Глава 1</p></title><p>Проверка архивной книги.</p></section></body></FictionBook>'.encode('utf-8'))
     addon_root = Path.home() / 'AppData/Roaming/nvda/addons'
     neural_addons = [str(path) for path in addon_root.glob('NeuralVoices*') if (path / 'manifest.ini').is_file()]
-    cases = [('sapi5', txt, []), ('sapi5_32', txt, []), ('oneCore', txt, []), ('NeuralVoices', fb2zip, neural_addons)]
+    rh_addons = [str(path) for path in addon_root.glob('RHVoice*') if (path / 'manifest.ini').is_file()]
+    cases = [('sapi5', txt, []), ('sapi5_32', txt, []), ('oneCore', txt, []), ('NeuralVoices', fb2zip, neural_addons),
+             ('RHVoice', txt, rh_addons)]
     import os
     fixture = os.environ.get('BOOK_AUDIO_NEWFON_FIXTURE')
     if fixture:
@@ -45,6 +47,16 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get(
                    'language': 'en' if driver == 'oneCore' else 'ru',
                    'files': [str(source)], 'output': str(output), 'separator': 'Глава'}
         request = temp / (driver + '.json')
+        discovery = dict(payload, action='voices')
+        request.write_text(json.dumps(discovery), encoding='utf-8')
+        process = subprocess.run([str(target / 'runtime/python.exe'), str(target / 'worker.py'), str(request)], capture_output=True, timeout=90)
+        assert process.returncode == 0, process.stdout.decode() + process.stderr.decode(errors='replace')
+        discovery_events = [json.loads(line) for line in process.stdout.decode().splitlines() if line.startswith('{')]
+        supported = discovery_events[-1]['supportsPauses']
+        assert type(supported) is bool
+        if driver == 'RHVoice':
+            assert not supported, 'This negative-path fixture must not advertise BreakCommand'
+        payload.update(commaPauseMs=80 if supported else 0, sentencePauseMs=120 if supported else 0)
         request.write_text(json.dumps(payload), encoding='utf-8')
         process = subprocess.run([str(target / 'runtime/python.exe'), str(target / 'worker.py'), str(request)], capture_output=True, timeout=90)
         assert process.returncode == 0, process.stdout.decode() + process.stderr.decode(errors='replace')
@@ -63,6 +75,16 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get(
         result = events[-1]
         assert result['type'] == 'compatibility' and result['status'] == 'verified', result
         assert result['volume'] == 25, result
+        assert result['commaPauseMs'] == payload['commaPauseMs'], result
+        assert result['sentencePauseMs'] == payload['sentencePauseMs'], result
         assert all(result[key] > 0 for key in ('frames', 'sampleRate', 'mp3Bytes')), result
         print(driver + ': extracted runtime voice probe PASS', flush=True)
+        if not supported:
+            payload['commaPauseMs'] = 100
+            request.write_text(json.dumps(payload), encoding='utf-8')
+            rejected = subprocess.run([str(target / 'runtime/python.exe'), str(target / 'worker.py'), str(request)], capture_output=True, timeout=90)
+            assert rejected.returncode != 0, rejected.stdout.decode()
+            rejection = [json.loads(line) for line in rejected.stdout.decode().splitlines() if line.startswith('{')][-1]
+            assert rejection['type'] == 'error' and 'не поддерживает дополнительные паузы' in rejection['message'], rejection
+            print(driver + ': extracted runtime unsupported-pause rejection PASS', flush=True)
     print('NVDA AddonBundle manifest + all extracted-runtime checks: PASS', flush=True)

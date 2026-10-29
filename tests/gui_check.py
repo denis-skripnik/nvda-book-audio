@@ -25,7 +25,7 @@ sys.modules['bookAudio'] = pkg
 from bookAudio.dialog import BookDialog
 source = folder / 'sample.txt'
 source.write_text('Вступление.\nГлава 1\nЭто первая глава.\nГлава 2\nЭто вторая глава.', encoding='utf-8')
-dialog = BookDialog(None, [('sapi5', 'Microsoft SAPI 5'), ('espeak', 'eSpeak NG')], context)
+dialog = BookDialog(None, [('sapi5', 'Microsoft SAPI 5'), ('espeak', 'eSpeak NG')], context, preferences_dir=False)
 dialog.Show()
 dialog.add_paths([str(source), str(source)])
 assert dialog.files.GetCount() == 1, 'Queue must deduplicate files'

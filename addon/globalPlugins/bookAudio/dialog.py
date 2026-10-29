@@ -7,17 +7,27 @@ from gui.guiHelper import BoxSizerHelper
 
 from .client import Cancelled, WorkerClient
 from .i18n import _
+from .preferences import load_preferences, save_preferences
 
 
 class BookDialog(wx.Dialog):
-    def __init__(self, parent, drivers, context, python=None):
+    def __init__(self, parent, drivers, context, python=None, preferences_dir=None):
         super().__init__(parent, title=_('Book Audio — текст в MP3'), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        if preferences_dir is None:
+            from NVDAState import WritePaths
+            preferences_dir = WritePaths.configDir
+        self.preferencesDir = preferences_dir
+        self.savedPreferences = load_preferences(preferences_dir) if preferences_dir is not False else {}
+        self.preferencesTimer = None
+        self.preferencesFailed = False
+        self.restoringPreferences = True
         self.context = dict(context)
         self.driverItems = list(drivers)
         self.python = python
         self.paths = []
         self.voiceItems = []
         self.loadingVoices = False
+        self.volumeEdited = False
         self.running = False
         self.probing = False
         self.runner = None
@@ -44,6 +54,22 @@ class BookDialog(wx.Dialog):
         self.voice = helper.addLabeledControl(_('&Голос:'), wx.Choice)
         self.rate = helper.addLabeledControl(_('С&корость NVDA, от 0 до 100:'), wx.SpinCtrl, min=0, max=100, initial=int(context.get('rate', 50)))
         self.volume = helper.addLabeledControl(_('Г&ромкость, от 0 до 100:'), wx.SpinCtrl, min=0, max=100, initial=100)
+        self.bitrate = helper.addLabeledControl(_('Битрейт MP3, к&бит/с:'), wx.Choice,
+                                               choices=['64', '96', '128', '160', '192'])
+        self.bitrate.SetStringSelection('128')
+        self.supportsPauses = False
+        self.pauseRows = []
+        for attribute, label in (
+            ('commaPause', _('Дополнительная пауза после зап&ятой, мс:')),
+            ('sentencePause', _('Дополнительная пауза в конце пр&едложения, мс:')),
+        ):
+            pauseRow = wx.BoxSizer(wx.VERTICAL)
+            pauseHelper = BoxSizerHelper(self, sizer=pauseRow)
+            control = pauseHelper.addLabeledControl(label, wx.SpinCtrl, min=0, max=2000, initial=0)
+            setattr(self, attribute, control)
+            self.pauseRows.append(pauseRow)
+            outer.Add(pauseRow, 0, wx.EXPAND)
+            pauseRow.ShowItems(False)
         self.probeButton = wx.Button(self, label=_('Проверить запись'))
         outer.Add(self.probeButton, 0, wx.TOP, 8)
         self.probeStatus = helper.addLabeledControl(_('Проверка записи:'), wx.TextCtrl,
@@ -71,8 +97,12 @@ class BookDialog(wx.Dialog):
         self.voice.Bind(wx.EVT_CHOICE, self.invalidate_probe)
         self.rate.Bind(wx.EVT_SPINCTRL, self.invalidate_probe)
         self.rate.Bind(wx.EVT_TEXT, self.invalidate_probe)
-        self.volume.Bind(wx.EVT_SPINCTRL, self.invalidate_probe)
-        self.volume.Bind(wx.EVT_TEXT, self.invalidate_probe)
+        self.volume.Bind(wx.EVT_SPINCTRL, self.on_volume)
+        self.volume.Bind(wx.EVT_TEXT, self.on_volume)
+        self.bitrate.Bind(wx.EVT_CHOICE, self.invalidate_probe)
+        for control in (self.commaPause, self.sentencePause):
+            control.Bind(wx.EVT_SPINCTRL, self.invalidate_probe)
+            control.Bind(wx.EVT_TEXT, self.invalidate_probe)
         self.startButton.Bind(wx.EVT_BUTTON, self.on_start)
         self.probeButton.Bind(wx.EVT_BUTTON, self.on_probe)
         self.cancelButton.Bind(wx.EVT_BUTTON, self.on_cancel)
@@ -80,7 +110,17 @@ class BookDialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self.on_close)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
         self.cancelButton.Disable()
+        saved = self.savedPreferences
+        for name in ('output', 'separator', 'rate'):
+            if name in saved:
+                getattr(self, name).SetValue(saved[name])
+        if 'bitrate' in saved:
+            self.bitrate.SetStringSelection(str(saved['bitrate']))
         selected = next((i for i, (name, _) in enumerate(drivers) if name == context.get('driver')), 0)
+        selected = next((i for i, (name, _) in enumerate(drivers) if name == saved.get('driver')), selected)
+        self.output.Bind(wx.EVT_TEXT, self.preferences_changed)
+        self.separator.Bind(wx.EVT_TEXT, self.preferences_changed)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.on_destroy)
         self.probeButton.Disable()
         if drivers:
             self.drivers.SetSelection(selected)
@@ -88,7 +128,58 @@ class BookDialog(wx.Dialog):
         else:
             self.status.SetValue(_('Доступные драйверы синтеза не найдены.'))
             self.startButton.Disable()
+        self.restoringPreferences = False
         wx.CallAfter(self.activate)
+
+    def preferences_changed(self, event=None):
+        if self.alive and not self.restoringPreferences and self.preferencesDir is not False:
+            if self.preferencesTimer:
+                self.preferencesTimer.Stop()
+            self.preferencesTimer = wx.CallLater(500, self.flush_preferences)
+        if event is not None:
+            event.Skip()
+
+    def flush_preferences(self):
+        if self.preferencesTimer:
+            self.preferencesTimer.Stop()
+            self.preferencesTimer = None
+        if self.preferencesDir is False:
+            return
+        values = dict(self.savedPreferences)
+        values.update(output=self.output.GetValue(), separator=self.separator.GetValue(),
+                      rate=self.rate.GetValue(), bitrate=int(self.bitrate.GetStringSelection()))
+        index = self.voice.GetSelection()
+        driver = self.drivers.GetSelection()
+        # Never overwrite a complete driver/voice pair with loading placeholders.
+        if not self.loadingVoices and driver != wx.NOT_FOUND and 0 <= index < len(self.voiceItems):
+            values.update(driver=self.driverItems[driver][0], voice=self.voiceItems[index]['id'],
+                          volume=self.volume.GetValue(), **self.pause_settings())
+        try:
+            success = save_preferences(self.preferencesDir, values)
+        except Exception:
+            success = False
+        if success:
+            self.savedPreferences = values
+        elif not self.preferencesFailed:
+            self.preferencesFailed = True
+            import logging
+            logging.getLogger(__name__).warning('Book Audio: settings could not be saved')
+
+    def Destroy(self):
+        # wx destroys child controls before EVT_WINDOW_DESTROY reaches Python.
+        # Capture their values while they are still valid, including raw unload.
+        if self.alive:
+            self.flush_preferences()
+            self.alive = False
+        return super().Destroy()
+
+    def on_destroy(self, event):
+        if event.GetEventObject() == self:
+            if self.preferencesTimer:
+                self.preferencesTimer.Stop()
+                self.preferencesTimer = None
+            self.alive = False
+        event.Skip()
 
     def activate(self):
         if self.alive and self.IsShown():
@@ -137,7 +228,9 @@ class BookDialog(wx.Dialog):
 
     def update_controls(self):
         busy = self.running or self.loadingVoices
-        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.separator, self.drivers, self.rate, self.volume):
+        for control in (self.commaPause, self.sentencePause):
+            control.Enable(not busy and self.supportsPauses)
+        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.separator, self.drivers, self.rate, self.volume, self.bitrate):
             control.Enable(not self.running)
         self.voice.Enable(not busy and bool(self.voiceItems))
         self.startButton.Enable(not busy and bool(self.voiceItems))
@@ -180,6 +273,8 @@ class BookDialog(wx.Dialog):
         if index == wx.NOT_FOUND or self.running or self.closePending:
             return
         self.invalidate_probe()
+        self.set_pause_support(False)
+        self.volumeEdited = False
         self.voiceGeneration += 1
         if self.runner:
             self.runner.cancel()
@@ -190,11 +285,15 @@ class BookDialog(wx.Dialog):
         self.update_controls()
         request = dict(self.context, action='voices', driver=self.driverItems[index][0])
         self.run_background(request, self.voices_finished, self.voiceGeneration)
+        self.preferences_changed()
 
     def voices_finished(self, result, error):
         if not self.alive:
             return
         self.loadingVoices = False
+        if not error and not (isinstance(result, dict) and isinstance(result.get('voices'), list)):
+            error = _('Процесс не вернул список голосов.')
+        self.set_pause_support(not error and result.get('supportsPauses') is True)
         self.runner = None
         if self.closePending:
             self.destroy_dialog()
@@ -202,13 +301,23 @@ class BookDialog(wx.Dialog):
         if error:
             self.status.SetValue(_('Ошибка загрузки голосов: ') + error)
         else:
+            matching = self.savedPreferences.get('driver') == self.driverItems[self.drivers.GetSelection()][0]
+            default_volume = self.savedPreferences.get('volume', result.get('volume')) if matching else result.get('volume')
+            if not self.volumeEdited and type(default_volume) is int and 0 <= default_volume <= 100:
+                self.volume.SetValue(default_volume)
             self.voiceItems = result['voices']
             self.voice.Set([voice['name'] for voice in self.voiceItems])
             if self.voiceItems:
-                index = next((i for i, voice in enumerate(self.voiceItems) if voice['id'] == self.context.get('voice')), 0)
+                preferred = self.savedPreferences.get('voice', self.context.get('voice')) if matching else self.context.get('voice')
+                fallback = next((i for i, voice in enumerate(self.voiceItems) if voice['id'] == self.context.get('voice')), 0)
+                index = next((i for i, voice in enumerate(self.voiceItems) if voice['id'] == preferred), fallback)
                 self.voice.SetSelection(index)
+            if matching and self.supportsPauses:
+                self.commaPause.SetValue(self.savedPreferences.get('commaPauseMs', 0))
+                self.sentencePause.SetValue(self.savedPreferences.get('sentencePauseMs', 0))
             self.status.SetValue(_('Голоса загружены. Выберите файлы, папку и нажмите «Запуск».') if self.voiceItems else _('У этого драйвера нет доступных голосов.'))
         self.update_controls()
+        self.preferences_changed()
 
     def handle_event(self, event):
         if not self.alive or self.closePending:
@@ -219,6 +328,7 @@ class BookDialog(wx.Dialog):
             self.progress.SetValue(int(100 * (event['chapter'] - 1) / max(1, event['chapters'])))
 
     def on_start(self, event):
+        self.flush_preferences()
         if self.running or self.loadingVoices:
             return
         if not self.paths:
@@ -235,7 +345,8 @@ class BookDialog(wx.Dialog):
             return
         request = dict(self.context, action='convert', files=list(self.paths), output=self.output.GetValue(),
                        separator=self.separator.GetValue(), driver=self.driverItems[self.drivers.GetSelection()][0],
-                       voice=self.voiceItems[self.voice.GetSelection()]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue())
+                       voice=self.voiceItems[self.voice.GetSelection()]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue(),
+                       bitrate=int(self.bitrate.GetStringSelection()), **self.pause_settings())
         self.running = True
         self.progress.SetValue(0)
         self.status.SetValue(_('Начинается создание аудиокниг…'))
@@ -271,7 +382,8 @@ class BookDialog(wx.Dialog):
             self.volume.SetFocus()
             return
         request = dict(self.context, action='probe', driver=self.driverItems[driver][0],
-                       voice=self.voiceItems[index]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue())
+                       voice=self.voiceItems[index]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue(),
+                       bitrate=int(self.bitrate.GetStringSelection()), **self.pause_settings())
         self.probeRequest = request
         self.probeCancelled = False
         self.running = self.probing = True
@@ -279,7 +391,30 @@ class BookDialog(wx.Dialog):
         self.update_controls()
         self.run_background(request, self.probe_finished)
 
+    def on_volume(self, event):
+        self.volumeEdited = True
+        self.invalidate_probe(event)
+
+    def set_pause_support(self, supported):
+        self.supportsPauses = supported is True
+        if not self.supportsPauses:
+            focused = wx.Window.FindFocus()
+            if any(focused == control or (focused is not None and control.IsDescendant(focused))
+                   for control in (self.commaPause, self.sentencePause)):
+                self.drivers.SetFocus()
+            self.commaPause.SetValue(0)
+            self.sentencePause.SetValue(0)
+        for row in self.pauseRows:
+            row.ShowItems(self.supportsPauses)
+        self.GetSizer().Fit(self)
+        self.Layout()
+
+    def pause_settings(self):
+        return dict(commaPauseMs=int(self.commaPause.GetValue()) if self.supportsPauses else 0,
+                    sentencePauseMs=int(self.sentencePause.GetValue()) if self.supportsPauses else 0)
+
     def invalidate_probe(self, event=None):
+        self.preferences_changed()
         if self.alive and not self.closePending:
             self.probeStatus.SetValue(_('Запись не проверена для выбранного драйвера, голоса, скорости и громкости.'))
         if event is not None:
@@ -298,7 +433,9 @@ class BookDialog(wx.Dialog):
         if not error and not (
             isinstance(result, dict) and result.get('type') == 'compatibility'
             and result.get('status') == 'verified'
-            and all(result.get(key) == self.probeRequest[key] for key in ('driver', 'voice', 'rate', 'volume'))
+            and all(result.get(key) == self.probeRequest[key] for key in ('driver', 'voice', 'rate', 'volume', 'bitrate'))
+            and all(type(result.get(key)) is int and result[key] == self.probeRequest[key]
+                    for key in ('commaPauseMs', 'sentencePauseMs'))
             and all(type(result.get(key)) is int and result[key] > 0
                     for key in ('frames', 'sampleRate', 'mp3Bytes'))
         ):
@@ -316,6 +453,7 @@ class BookDialog(wx.Dialog):
             self.runner.cancel()
 
     def on_close(self, event):
+        self.flush_preferences()
         if self.running and not self.probing:
             # Keep the modeless dialog owned by the plug-in: its worker and
             # progress callbacks remain alive while the window is hidden.
@@ -335,5 +473,6 @@ class BookDialog(wx.Dialog):
 
     def destroy_dialog(self):
         if self.alive:
+            self.flush_preferences()
             self.alive = False
             self.Destroy()

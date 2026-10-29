@@ -16,14 +16,14 @@ class BuildTests(unittest.TestCase):
 
     def test_release_version(self):
         import runpy
-        self.assertEqual(runpy.run_path(str(ROOT / 'build.py'))['VERSION'], '0.1.5')
+        self.assertEqual(runpy.run_path(str(ROOT / 'build.py'))['VERSION'], '0.1.7')
 
     def test_addon_archive_layout_runtime_and_licenses(self):
         script = ROOT / 'build.py'
         self.assertTrue(script.exists(), 'Reproducible addon builder is not implemented')
         result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stderr)
-        addon = ROOT / 'dist/bookAudio-0.1.5.nvda-addon'
+        addon = ROOT / 'dist/bookAudio-0.1.7.nvda-addon'
         with zipfile.ZipFile(addon) as archive:
             names = set(archive.namelist())
             required = {'manifest.ini', 'globalPlugins/bookAudio/__init__.py',

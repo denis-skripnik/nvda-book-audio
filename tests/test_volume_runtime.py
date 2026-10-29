@@ -83,8 +83,10 @@ class VolumeRuntimeTests(unittest.TestCase):
                 measured[volume].append(rms(decoded.stdout))
             for index in (0, 1):
                 ratio = measured[25][index] / measured[100][index]
-                self.assertGreater(ratio, 0.15)
-                self.assertLess(ratio, 0.35, measured)
+                # Native driver percentage scales are not uniformly linear.
+                # Assert real attenuation, not the old post-PCM quarter-gain curve.
+                self.assertGreater(ratio, 0)
+                self.assertLess(ratio, 0.8, measured)
 
 
 if __name__ == '__main__':
