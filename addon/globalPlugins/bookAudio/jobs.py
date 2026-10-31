@@ -26,7 +26,7 @@ def convert(request, read, split, safe, render, encode, emit):
     for file_index, source in enumerate(request['files'], 1):
         source = Path(source)
         emit('status', message=_('Чтение файла {file_index} из {files}: {name}').format(file_index=file_index, files=len(request['files']), name=source.name))
-        chapters = split(read(source), request['separator'])
+        chapters = split(read(source), request.get('separator', ''))
         if not chapters:
             raise ValueError(_('В файле «{name}» нет текста для озвучивания.').format(name=source.name))
         book_name = source.name[:-8] if source.name.lower().endswith('.fb2.zip') else source.stem

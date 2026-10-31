@@ -11,14 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
 import worker
-archive = ROOT / 'dist/bookAudio-0.1.7.nvda-addon'
+archive = ROOT / 'dist/bookAudio-0.1.8.nvda-addon'
 with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get('TMPDIR')) as temp:
     temp = Path(temp)
     worker.bootstrap({'nvda': os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), 'config': str(temp / 'parser'), 'addons': []})
     import addonHandler
     bundle = addonHandler.AddonBundle(str(archive))
     assert bundle.manifest['name'] == 'bookAudio'
-    assert bundle.manifest['version'] == '0.1.7'
+    assert bundle.manifest['version'] == '0.1.8'
     assert bundle.manifest.errors is None, bundle.manifest.errors
     unpacked = temp / 'unpacked'
     with zipfile.ZipFile(archive) as package:
@@ -87,4 +87,22 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-packed-', dir=os.environ.get(
             rejection = [json.loads(line) for line in rejected.stdout.decode().splitlines() if line.startswith('{')][-1]
             assert rejection['type'] == 'error' and 'не поддерживает дополнительные паузы' in rejection['message'], rejection
             print(driver + ': extracted runtime unsupported-pause rejection PASS', flush=True)
+    structured = temp / 'structured.fb2.zip'
+    with zipfile.ZipFile(structured, 'w', zipfile.ZIP_DEFLATED) as book:
+        book.writestr('nested/book.fb2', ('<FictionBook><description><title-info><annotation><p>Текст аннотации книги.</p></annotation>'
+            '</title-info></description><body><section><title><p>Начало</p></title><p>Глава поселения встретил гостей.</p>'
+            '</section><section><title><p>Продолжение</p></title><p>Вторая настоящая часть.</p></section></body></FictionBook>').encode('utf-8'))
+    output = temp / 'output-structure'
+    output.mkdir()
+    payload = dict(nvda=os.environ.get('BOOK_AUDIO_TEST_NVDA', 'C:/Program Files/NVDA'), config=str(temp / 'config-structure'),
+        addons=[], action='convert', driver='espeak', voice='', rate=50, volume=50, bitrate=96, language='ru',
+        files=[str(structured)], output=str(output), separator='Глава', splitMode='auto', includeAnnotation=True)
+    request = temp / 'structure.json'
+    request.write_text(json.dumps(payload), encoding='utf-8')
+    process = subprocess.run([str(target / 'runtime/python.exe'), str(target / 'worker.py'), str(request)], capture_output=True, timeout=90)
+    assert process.returncode == 0, process.stdout.decode() + process.stderr.decode(errors='replace')
+    files = sorted(output.rglob('*.mp3'))
+    assert [file.name.split(' - ', 1)[1] for file in files] == ['Аннотация.mp3', 'Начало.mp3', 'Продолжение.mp3'], files
+    assert all(file.stat().st_size > 1000 for file in files)
+    print('FB2.ZIP structure + annotation + no narrative false boundary: extracted runtime PASS', flush=True)
     print('NVDA AddonBundle manifest + all extracted-runtime checks: PASS', flush=True)

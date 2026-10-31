@@ -30,7 +30,8 @@ dialog.Show()
 dialog.add_paths([str(source), str(source)])
 assert dialog.files.GetCount() == 1, 'Queue must deduplicate files'
 dialog.output.SetValue(str(folder))
-dialog.separator.SetValue('Глава')
+assert dialog.splitModeItems[dialog.splitMode.GetSelection()] == 'auto'
+assert dialog.includeAnnotation.GetValue() is True
 started = [False]
 start = time.monotonic()
 result = {'passed': False}

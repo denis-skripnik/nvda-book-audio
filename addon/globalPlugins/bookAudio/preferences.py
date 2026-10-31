@@ -9,7 +9,7 @@ def _normalize(values):
     if not isinstance(values, dict):
         return {}
     result = {}
-    for key in ('output', 'separator', 'driver', 'voice'):
+    for key in ('output', 'driver', 'voice'):
         if isinstance(values.get(key), str):
             result[key] = values[key]
     for key, maximum in (('rate', 100), ('volume', 100), ('commaPauseMs', 2000), ('sentencePauseMs', 2000)):
@@ -19,6 +19,12 @@ def _normalize(values):
     value = values.get('bitrate')
     if type(value) is int and value in (64, 96, 128, 160, 192):
         result['bitrate'] = value
+    value = values.get('splitMode')
+    if type(value) is str and value in ('auto', 'structure', 'none'):
+        result['splitMode'] = value
+    value = values.get('includeAnnotation')
+    if type(value) is bool:
+        result['includeAnnotation'] = value
     return result
 
 

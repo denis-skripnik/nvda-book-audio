@@ -266,7 +266,7 @@ def main(request):
                 encode_wav(request['wav'], request['mp3'], bitrate=request.get('bitrate', 128))
             emit('rendered', frames=sink.frames, wav=request['wav'])
         elif request['action'] == 'convert':
-            from documents import read_document, split_chapters, safe_name
+            from documents import read_book, plan_chapters, safe_name
             from jobs import convert
             from encoder import encode_wav
 
@@ -284,7 +284,10 @@ def main(request):
                     raise RuntimeError(_('Драйвер не передал PCM-аудио. Выберите другой синтезатор.'))
             def encode_chapter(wav, mp3):
                 encode_wav(wav, mp3, bitrate=request.get('bitrate', 128))
-            count = convert(request, read_document, split_chapters, safe_name, render_chapter, encode_chapter, emit)
+            def split_book(book, separator):
+                return plan_chapters(book, separator, mode=request.get('splitMode', 'auto'),
+                                     include_annotation=request.get('includeAnnotation', True))
+            count = convert(request, read_book, split_book, safe_name, render_chapter, encode_chapter, emit)
             emit('done', count=count)
         else:
             raise ValueError(_('Неизвестное действие.'))

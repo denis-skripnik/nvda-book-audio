@@ -49,7 +49,14 @@ class BookDialog(wx.Dialog):
         self.output = helper.addLabeledControl(_('Папка сохранения:'), wx.TextCtrl)
         self.browseButton = wx.Button(self, label=_('Выбрать &папку…'))
         outer.Add(self.browseButton, 0, wx.TOP | wx.BOTTOM, 8)
-        self.separator = helper.addLabeledControl(_('Фраза разделения в начале строки (пусто — весь файл):'), wx.TextCtrl, value=_('Глава'))
+        self.splitModeItems = ['auto', 'structure', 'none']
+        self.splitMode = helper.addLabeledControl(_('Разбиение на части:'), wx.Choice, choices=[
+            _('Авто'), _('По структуре книги'), _('Один файл на книгу')])
+        self.splitMode.SetSelection(0)
+        outer.Add(wx.StaticText(self, label=_('Авто: структура книги / доступные закладки, затем Глава/Часть/Chapter/Part + номер.')), 0, wx.TOP | wx.BOTTOM, 4)
+        self.includeAnnotation = wx.CheckBox(self, label=_('Озвучивать аннотацию FB2, если она есть'))
+        self.includeAnnotation.SetValue(True)
+        outer.Add(self.includeAnnotation, 0, wx.TOP | wx.BOTTOM, 8)
         self.drivers = helper.addLabeledControl(_('Драйвер &синтезатора:'), wx.Choice, choices=[label for name, label in drivers])
         self.voice = helper.addLabeledControl(_('&Голос:'), wx.Choice)
         self.rate = helper.addLabeledControl(_('С&корость NVDA, от 0 до 100:'), wx.SpinCtrl, min=0, max=100, initial=int(context.get('rate', 50)))
@@ -111,15 +118,19 @@ class BookDialog(wx.Dialog):
         self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
         self.cancelButton.Disable()
         saved = self.savedPreferences
-        for name in ('output', 'separator', 'rate'):
+        for name in ('output', 'rate'):
             if name in saved:
                 getattr(self, name).SetValue(saved[name])
+        self.splitMode.SetSelection(self.splitModeItems.index(saved.get('splitMode', 'auto')))
+        self.includeAnnotation.SetValue(saved.get('includeAnnotation', True))
+        self.splitMode.Bind(wx.EVT_CHOICE, self.preferences_changed)
+        self.includeAnnotation.Bind(wx.EVT_CHECKBOX, self.preferences_changed)
         if 'bitrate' in saved:
             self.bitrate.SetStringSelection(str(saved['bitrate']))
         selected = next((i for i, (name, _) in enumerate(drivers) if name == context.get('driver')), 0)
         selected = next((i for i, (name, _) in enumerate(drivers) if name == saved.get('driver')), selected)
         self.output.Bind(wx.EVT_TEXT, self.preferences_changed)
-        self.separator.Bind(wx.EVT_TEXT, self.preferences_changed)
+
         self.Bind(wx.EVT_WINDOW_DESTROY, self.on_destroy)
         self.probeButton.Disable()
         if drivers:
@@ -146,8 +157,10 @@ class BookDialog(wx.Dialog):
         if self.preferencesDir is False:
             return
         values = dict(self.savedPreferences)
-        values.update(output=self.output.GetValue(), separator=self.separator.GetValue(),
-                      rate=self.rate.GetValue(), bitrate=int(self.bitrate.GetStringSelection()))
+        values.update(output=self.output.GetValue(),
+                      rate=self.rate.GetValue(), bitrate=int(self.bitrate.GetStringSelection()),
+                      splitMode=self.splitModeItems[self.splitMode.GetSelection()],
+                      includeAnnotation=self.includeAnnotation.GetValue())
         index = self.voice.GetSelection()
         driver = self.drivers.GetSelection()
         # Never overwrite a complete driver/voice pair with loading placeholders.
@@ -226,11 +239,12 @@ class BookDialog(wx.Dialog):
                 self.output.SetValue(dialog.GetPath())
         self.output.SetFocus()
 
+
     def update_controls(self):
         busy = self.running or self.loadingVoices
         for control in (self.commaPause, self.sentencePause):
             control.Enable(not busy and self.supportsPauses)
-        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.separator, self.drivers, self.rate, self.volume, self.bitrate):
+        for control in (self.addButton, self.removeButton, self.files, self.output, self.browseButton, self.splitMode, self.includeAnnotation, self.drivers, self.rate, self.volume, self.bitrate):
             control.Enable(not self.running)
         self.voice.Enable(not busy and bool(self.voiceItems))
         self.startButton.Enable(not busy and bool(self.voiceItems))
@@ -344,7 +358,8 @@ class BookDialog(wx.Dialog):
             self.voice.SetFocus()
             return
         request = dict(self.context, action='convert', files=list(self.paths), output=self.output.GetValue(),
-                       separator=self.separator.GetValue(), driver=self.driverItems[self.drivers.GetSelection()][0],
+                       separator='', splitMode=self.splitModeItems[self.splitMode.GetSelection()],
+                       includeAnnotation=self.includeAnnotation.GetValue(), driver=self.driverItems[self.drivers.GetSelection()][0],
                        voice=self.voiceItems[self.voice.GetSelection()]['id'], rate=self.rate.GetValue(), volume=self.volume.GetValue(),
                        bitrate=int(self.bitrate.GetStringSelection()), **self.pause_settings())
         self.running = True

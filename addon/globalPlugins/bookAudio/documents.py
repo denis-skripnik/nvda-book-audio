@@ -9,8 +9,26 @@ import re
 from io import BytesIO
 import zipfile
 from copy import copy
+from dataclasses import dataclass
+
+
+@dataclass
+class Document:
+    text: str
+    sections: list[tuple[str, str]]
+    annotation: str = ''
+    kind: str = 'txt'
 
 MAX_DOCUMENT_BYTES = 128 * 1024 * 1024
+
+# Input-language vocabulary is data, not UI text: never translate these tokens.
+_HEADING_PREFIXES = ('глава', 'часть', 'chapter', 'part')
+_HEADING_RU_WORDS = ('первая вторая третья четвёртая четвертая пятая шестая седьмая восьмая '
+                     'девятая десятая одиннадцатая двенадцатая тринадцатая четырнадцатая '
+                     'пятнадцатая шестнадцатая семнадцатая восемнадцатая девятнадцатая '
+                     'двадцатая тридцатая сороковая пятидесятая шестидесятая семидесятая '
+                     'восьмидесятая девяностая сотая')
+_HEADING_RU_TENS = ('двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто')
 
 
 def safe_name(name: str) -> str:
@@ -48,6 +66,71 @@ def split_chapters(text: str, separator: str) -> list[tuple[str, str]]:
     return chapters
 
 
+def plan_chapters(book: Document, separator: str, mode='auto', include_annotation=True) -> list[tuple[str, str]]:
+    """Plan speech tracks without treating narrative FB2 paragraphs as headings."""
+    if mode not in ('auto', 'structure', 'phrase', 'none'):
+        raise ValueError(_('Неизвестный режим разбиения книги.'))
+    if type(include_annotation) is not bool:
+        raise ValueError(_('Параметр озвучивания аннотации должен быть логическим значением.'))
+    whole = [(_('Книга'), book.text.strip())] if book.text.strip() else []
+    annotation = book.annotation.strip() if include_annotation else ''
+    if mode == 'none':
+        text = '\n\n'.join(part for part in (annotation, book.text.strip()) if part)
+        return [(_('Книга'), text)] if text else []
+    if mode == 'phrase':
+        chapters = split_chapters(book.text, separator)
+    elif mode == 'auto':
+        chapters = list(book.sections) or _numbered_chapters(book.text)
+    else:
+        chapters = list(book.sections) or whole
+    return ([(_('Аннотация'), annotation)] if annotation else []) + chapters
+
+
+def _numbered_chapters(text, separator=None):
+    """Conservative fallback: fixed-prefix numbered headings, at most 120 chars.
+
+    Narrative and freely titled lines are not guessed. The optional legacy
+    separator argument is ignored: persisted custom prefixes cannot affect auto.
+    """
+    text = text.replace('\r\n', '\n').replace('\r', '\n').strip()
+    whole = [(_('Книга'), text)] if text else []
+
+    ru = _HEADING_RU_WORDS.split()
+    en = ('one two three four five six seven eight nine ten eleven twelve thirteen '
+          'fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty forty '
+          'fifty sixty seventy eighty ninety hundred first second third fourth fifth '
+          'sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth '
+          'fifteenth sixteenth seventeenth eighteenth nineteenth twentieth thirtieth').split()
+    words = set(ru + en)
+    for tens in _HEADING_RU_TENS:
+        words.update(tens + ' ' + unit for unit in ru[:10])
+    for tens in ('twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'):
+        words.update(tens + joiner + unit for joiner in (' ', '-') for unit in en[:9])
+    prefix = re.compile(r'^[^\S\n]*(?:' + '|'.join(map(re.escape, _HEADING_PREFIXES))
+                        + r')[^\S\n]+(.+?)[^\S\n]*$', re.IGNORECASE)
+    roman = re.compile(r'M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})', re.IGNORECASE)
+    starts = []
+    for match in re.finditer(r'^.*$', text, re.MULTILINE):
+        line = match.group()
+        heading = prefix.fullmatch(line) if len(line) <= 120 else None
+        if heading:
+            number = heading.group(1).removesuffix('.').casefold()
+            if number in words or re.fullmatch(r'[0-9]+', number) or (number and roman.fullmatch(number)):
+                starts.append(match.start())
+    if not starts:
+        return whole
+    chapters = []
+    if text[:starts[0]].strip():
+        chapters.append((_('Предисловие'), text[:starts[0]].removesuffix('\n')))
+    for index, start in enumerate(starts):
+        end = starts[index + 1] if index + 1 < len(starts) else len(text)
+        # Remove just the boundary newline, not indentation, blank paragraphs,
+        # or literal trailing spaces within a section.
+        body = text[start:end].removesuffix('\n')
+        chapters.append((body.split('\n', 1)[0].strip(), body))
+    return chapters
+
+
 def _read_fb2(data):
     try:
         if __package__:
@@ -57,9 +140,24 @@ def _read_fb2(data):
         root = ElementTree.fromstring(data, forbid_dtd=True, forbid_entities=True, forbid_external=True)
     except Exception as error:
         raise ValueError(_("Не удалось прочитать FB2: повреждённый или небезопасный XML.")) from error
-    lines = []
+    return _fb2_document(root)
 
-    def collect(element):
+
+def _fb2_document(root):
+    lines = []
+    headings = []
+
+    def collect(element, parent_tag=''):
+        start = len(lines)
+        tag = element.tag.rsplit('}', 1)[-1]
+        is_heading = tag == 'title' and parent_tag == 'section'
+        collect_text(element)
+        if is_heading:
+            title = '\n'.join(lines[start:]).strip()
+            if title:
+                headings.append((start, len(lines), title))
+
+    def collect_text(element):
         tag = element.tag.rsplit("}", 1)[-1]
         if tag == "empty-line":
             lines.append("")
@@ -67,19 +165,47 @@ def _read_fb2(data):
             lines.append("".join(element.itertext()).strip())
         elif tag not in ("binary", "description", "image"):
             for child in element:
-                collect(child)
+                collect(child, tag)
 
     for body in root:
         if body.tag.rsplit("}", 1)[-1] == "body":
             collect(body)
-    return "\n".join(lines).strip()
+    text = '\n'.join(lines).strip()
+    sections = []
+    if headings:
+        preface = '\n'.join(lines[:headings[0][0]]).strip()
+        if preface:
+            sections.append((_('Предисловие'), preface))
+        pending = headings[0][0]
+        for index, (start, title_end, title) in enumerate(headings):
+            end = headings[index + 1][0] if index + 1 < len(headings) else len(lines)
+            # A heading-only container belongs to its first nonempty child.
+            if index + 1 < len(headings) and not any(line.strip() for line in lines[title_end:end]):
+                continue
+            section = '\n'.join(lines[pending:end]).strip()
+            if section:
+                sections.append((title, section))
+            pending = end
+    # Only the primary title-info contributes an annotation, never src-title-info.
+    annotation = ''
+    primary = root
+    for tag in ('description', 'title-info', 'annotation'):
+        primary = next((child for child in primary
+                        if child.tag.rsplit('}', 1)[-1] == tag), None)
+        if primary is None:
+            break
+    if primary is not None:
+        lines = []
+        collect(primary)
+        annotation = '\n'.join(lines).strip()
+    return Document(text, sections, annotation, kind='fb2')
 
 
 class _PasswordProtectedPDF(ValueError):
     """Route password errors by type, never by translated message text."""
 
 
-def _read_pdf(data):
+def _read_pdf(data, structured=False):
     from io import BytesIO
     try:
         if __package__:
@@ -89,14 +215,49 @@ def _read_pdf(data):
         reader = PdfReader(BytesIO(data), strict=True)
         if reader.is_encrypted and not reader.decrypt(""):
             raise _PasswordProtectedPDF(_("PDF защищён паролем. Сначала снимите защиту документа."))
-        text = "\n\n".join(page.extract_text() or "" for page in reader.pages).strip()
+        pages = [page.extract_text() or "" for page in reader.pages]
+        text = "\n\n".join(pages).strip()
     except _PasswordProtectedPDF:
         raise
     except Exception as error:
         raise ValueError(_("Не удалось прочитать PDF: файл повреждён или не поддерживается.")) from error
     if not text:
         raise ValueError(_("В PDF нет доступного текста. Выполните распознавание текста (OCR) и повторите попытку."))
-    return text
+    if not structured:
+        return text
+    starts = {}
+
+    def bookmarks(items):
+        if not isinstance(items, list):
+            return
+        for item in items:
+            if isinstance(item, list):
+                bookmarks(item)
+                continue
+            try:
+                page = reader.get_destination_page_number(item)
+                title = str(item.get('/Title', '')).strip()
+            except Exception:
+                continue  # Unresolvable/nonlocal metadata is not a text error.
+            if type(page) is int and 0 <= page < len(pages) and title:
+                starts.setdefault(page, title)  # First title on each page wins.
+
+    try:
+        bookmarks(reader.outline)
+    except Exception:
+        starts.clear()  # Malformed optional outlines must not lose page text.
+    sections = []
+    ordered = sorted(starts)
+    if ordered:
+        preface = '\n\n'.join(pages[:ordered[0]]).strip()
+        if preface:
+            sections.append((_('Предисловие'), preface))
+        for index, start in enumerate(ordered):
+            end = ordered[index + 1] if index + 1 < len(ordered) else len(pages)
+            body = '\n\n'.join(pages[start:end]).strip()
+            if body:
+                sections.append((starts[start], body))
+    return Document(text, sections, kind='pdf')
 
 
 def _read_fb2_zip(data):
@@ -134,6 +295,11 @@ def _read_fb2_zip(data):
 
 
 def read_document(path) -> str:
+    """Compatibility API: return body text only, without annotation."""
+    return read_book(path).text
+
+
+def read_book(path) -> Document:
     """Read FB2, FB2.ZIP, TXT or PDF; expose localized user-facing errors."""
     path = Path(path)
     suffix = path.suffix.lower()
@@ -153,15 +319,15 @@ def read_document(path) -> str:
     if zipped_fb2:
         return _read_fb2_zip(data)
     if suffix == ".pdf":
-        return _read_pdf(data)
+        return _read_pdf(data, structured=True)
     if suffix == ".fb2":
         return _read_fb2(data)
     try:
         if data.startswith((b"\xff\xfe", b"\xfe\xff")):
-            return data.decode("utf-16")
+            return Document(data.decode("utf-16"), [])
         try:
-            return data.decode("utf-8-sig")
+            return Document(data.decode("utf-8-sig"), [])
         except UnicodeDecodeError:
-            return data.decode("cp1251")
+            return Document(data.decode("cp1251"), [])
     except UnicodeDecodeError as error:
         raise ValueError(_("Не удалось определить кодировку TXT. Сохраните файл в UTF-8 или UTF-16.")) from error

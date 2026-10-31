@@ -24,13 +24,18 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=os.environ['T
         assert dialog.GetTitle() == 'Book Audio — Text to MP3', 'English NVDA must select an English window title'
         assert dialog.startButton.GetLabel().replace('&', '') == 'Start'
         assert dialog.closeButton.GetLabel().replace('&', '') == 'Close'
-        assert dialog.separator.GetValue() == 'Chapter'
+        assert dialog.splitMode.GetStrings() == ['Auto', 'By book structure', 'One file per book']
+        assert not hasattr(dialog, 'separator')
         dialog.on_start(None)
         assert dialog.status.GetValue() == 'Add at least one file.'
         dialog.output.SetValue(temp)
         dialog.conversion_finished({'count': 2}, None)
         assert 'Done.' in dialog.status.GetValue() and '2' in dialog.status.GetValue()
-        assert not any('\u0400' <= char <= '\u04ff' for control in dialog.GetChildren() for char in control.GetLabel()), 'Untranslated native GUI label'
+        hint = 'Auto: book structure / available bookmarks, then Глава/Часть/Chapter/Part + number.'
+        assert hint in [control.GetLabel() for control in dialog.GetChildren()]
+        # Russian heading tokens are literal supported input syntax, not untranslated UI.
+        assert not any('\u0400' <= char <= '\u04ff' for control in dialog.GetChildren()
+                       for char in control.GetLabel().replace('Глава/Часть/Chapter/Part', '')), 'Untranslated native GUI label'
     finally:
         dialog.destroy_dialog()
     from bookAudio.i18n import set_language
@@ -39,13 +44,14 @@ with tempfile.TemporaryDirectory(prefix='bookAudio-language-', dir=os.environ['T
     try:
         assert russian.GetTitle() == 'Book Audio — текст в MP3'
         assert russian.startButton.GetLabel().replace('&', '') == 'Запуск'
-        assert russian.separator.GetValue() == 'Глава'
+        assert russian.splitMode.GetStrings() == ['Авто', 'По структуре книги', 'Один файл на книгу']
+        assert not hasattr(russian, 'separator')
         russian.on_start(None)
         assert russian.status.GetValue() == 'Добавьте хотя бы один файл.'
         russian.output.SetValue(temp)
         russian.conversion_finished({'count': 2}, None)
         assert 'Готово.' in russian.status.GetValue() and '2' in russian.status.GetValue()
-        print('English/Russian native GUI, default separator, validation and completion: PASS', flush=True)
+        print('English/Russian native GUI, automatic splitting, validation and completion: PASS', flush=True)
     finally:
         russian.destroy_dialog()
         app.Destroy()

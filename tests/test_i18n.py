@@ -15,6 +15,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'addon/globalPlugins/bookAudio'
 sys.path.insert(0, str(PLUGIN))
+sys.path.insert(0, str(PLUGIN / 'vendor'))
 sys.path.insert(0, str(ROOT / 'tools'))
 
 
@@ -71,6 +72,16 @@ class LocalizationTests(unittest.TestCase):
                 if isinstance(parents.get(node), ast.Expr):
                     continue
                 parent = parents.get(node)
+                # Narrow exemption for language-independent input vocabulary,
+                # not a blanket exemption for parser/UI/error strings.
+                owner = parent
+                while owner is not None and not isinstance(owner, (ast.Assign, ast.FunctionDef, ast.Module)):
+                    owner = parents.get(owner)
+                if name == 'documents' and isinstance(owner, ast.Assign) and all(
+                    isinstance(target, ast.Name) and target.id in ('_HEADING_PREFIXES', '_HEADING_RU_WORDS', '_HEADING_RU_TENS')
+                    for target in owner.targets
+                ):
+                    continue
                 self.assertTrue(isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id == '_',
                                 (name, node.lineno, node.value))
                 self.assertIn(node.value, messages, (name, node.value))

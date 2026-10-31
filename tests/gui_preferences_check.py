@@ -57,7 +57,7 @@ class PreferenceChecks(unittest.TestCase):
         self.select_driver(1)
         self.loaded({'voices': [{'id': 'two', 'name': 'Two'}], 'volume': 50, 'supportsPauses': True})
         d.output.SetValue(str(self.directory / 'Несуществующая папка 音'))
-        d.separator.SetValue('')
+        self.assertEqual(d.splitMode.GetSelection(), 0)
         d.rate.SetValue(72)
         d.volume.SetValue(83)
         d.bitrate.SetStringSelection('192')
@@ -66,15 +66,16 @@ class PreferenceChecks(unittest.TestCase):
         d.add_paths([__file__])
         self.close()
         saved = load_preferences(self.directory)
-        self.assertEqual(saved, dict(output=str(self.directory / 'Несуществующая папка 音'), separator='',
-            driver='b', voice='two', rate=72, volume=83, bitrate=192, commaPauseMs=123, sentencePauseMs=456))
+        self.assertEqual(saved, dict(output=str(self.directory / 'Несуществующая папка 音'),
+            driver='b', voice='two', rate=72, volume=83, bitrate=192, commaPauseMs=123, sentencePauseMs=456,
+            splitMode='auto', includeAnnotation=True))
         d = self.create()
         self.assertEqual(d.drivers.GetSelection(), 1)
         self.loaded({'voices': [{'id': 'one', 'name': 'One'}, {'id': 'two', 'name': 'Two'}], 'volume': 50, 'supportsPauses': True})
         self.assertEqual(d.voice.GetSelection(), 1)
-        self.assertEqual((d.output.GetValue(), d.separator.GetValue(), d.rate.GetValue(), d.volume.GetValue(),
+        self.assertEqual((d.output.GetValue(), d.splitMode.GetSelection(), d.rate.GetValue(), d.volume.GetValue(),
             d.bitrate.GetStringSelection(), d.commaPause.GetValue(), d.sentencePause.GetValue(), d.paths),
-            (saved['output'], '', 72, 83, '192', 123, 456, []))
+            (saved['output'], 0, 72, 83, '192', 123, 456, []))
 
     def test_actual_nvda_config_directory_not_worker_context(self):
         from NVDAState import WritePaths
@@ -90,11 +91,12 @@ class PreferenceChecks(unittest.TestCase):
         d = self.create()
         self.loaded()
         d.output.SetValue('Отложенная папка')
-        d.separator.SetValue('')
+        d.includeAnnotation.SetValue(False)
         d.Destroy()
         self.pump(lambda: not bool(d))
         self.assertEqual(load_preferences(self.directory)['output'], 'Отложенная папка')
-        self.assertEqual(load_preferences(self.directory)['separator'], '')
+        self.assertFalse(load_preferences(self.directory)['includeAnnotation'])
+        self.assertNotIn('separator', load_preferences(self.directory))
 
     def test_rapid_switch_does_not_save_loading_or_restore_wrong_driver(self):
         save_preferences(self.directory, dict(driver='a', voice='one', volume=81, commaPauseMs=123))

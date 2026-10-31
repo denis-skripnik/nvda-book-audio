@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.8 — Preview
+
+- Default FB2/FB2.ZIP splitting to structural section titles rather than literal chapter-word matches in ordinary paragraphs; retain nested headings and body text without duplication.
+- Remove the editable chapter-prefix field and legacy phrase mode from the interface. Auto uses structural headings/PDF bookmarks first, then fixed Глава/Часть/Chapter/Part numbered heading patterns; Book structure and One file modes remain available.
+- Use valid local PDF bookmarks at page boundaries while preserving all page text; absent/unusable outlines fall back safely.
+- Read the primary FB2 annotation by default, with an opt-out checkbox; use a separate initial track except in combined one-file mode.
+- Persist both book options while preserving existing speech, pause, background and output preferences; retain XML/ZIP input-safety protections.
+
 ## 0.1.7 — Preview
 
 - Add conditional additional comma/sentence pause controls (0–2000 ms, default zero) based on the loaded driver's advertised BreakCommand support. Hide/reset unsupported settings and reject nonzero unsupported requests in the worker.

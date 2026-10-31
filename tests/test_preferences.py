@@ -29,7 +29,7 @@ class PreferencesTests(unittest.TestCase):
         self.assertEqual(list(self.root.iterdir()), [])
 
     def test_all_settings_survive_fresh_module_and_preserve_literal_strings(self):
-        settings = dict(output='\\\\offline-server\\Книги\\не существует ', separator=' Глава\n',
+        settings = dict(output='\\\\offline-server\\Книги\\не существует ',
                         driver='драйвер', voice='голос', rate=0, volume=100, bitrate=192,
                         commaPauseMs=0, sentencePauseMs=2000)
         self.assertTrue(fresh_store().save_preferences(self.root, settings))
@@ -54,7 +54,9 @@ class PreferencesTests(unittest.TestCase):
         for key, values in cases.items():
             for value in values:
                 with self.subTest(key=key, value=value):
-                    if key in ('output', 'separator', 'driver', 'voice'):
+                    if key == 'separator':
+                        valid = False
+                    elif key in ('output', 'driver', 'voice'):
                         valid = type(value) is str
                     elif key == 'bitrate':
                         valid = type(value) is int and value in (64, 96, 128, 160, 192)
