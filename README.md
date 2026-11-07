@@ -6,13 +6,15 @@ An accessible NVDA add-on for turning books into MP3 audiobooks.
 
 [Download the latest release](https://github.com/denis-skripnik/nvda-book-audio/releases) · [Russian documentation](README.ru.md) · [Compatibility notes](docs/COMPATIBILITY.md)
 
-Current version: **0.1.8 (preview)**.
+Current version: **0.1.9 (preview)**.
+
+This version also fixes voice loading on **NVDA 2026.3.1rc1** by resolving its WinRT projection resources from NVDA rather than the add-on's private Python directory.
 
 Turn TXT, FB2, FB2.ZIP and text-based PDF documents into chapter MP3 files using synthesizers and voices installed in NVDA. This build targets **NVDA 2026.2 or 2026.3, Windows x64, Python 3.13**. Python and MP3 encoding are included; no separate Python or FFmpeg installation is required.
 
 ## Open and configure
 
-Install `bookAudio-0.1.8.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
+Install `bookAudio-0.1.9.nvda-addon` and restart NVDA. Open **NVDA → Tools → Book Audio — Text to MP3**, or press **NVDA+Windows+A**. Reassign this command in **Preferences → Input gestures**, under **Book Audio**, command **Open the Book Audio window**. User gesture mappings are handled by NVDA, not stored by this add-on.
 
 The interface follows NVDA's language: Russian for Russian NVDA, English for English and other NVDA languages. Restart NVDA after changing its interface language. The add-on's internal identifier remains `bookAudio`, so this version updates the previous installation rather than creating a duplicate add-on.
 

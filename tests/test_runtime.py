@@ -95,6 +95,11 @@ class RuntimeTests(unittest.TestCase):
                 ' import pyphen\n'
                 f' assert pyphen.dictionaries.resolve() == (Path({str(NVDA)!r}) / "pyphenDictionaries").resolve()\n'
                 ' assert pyphen.LANGUAGES and all(p.is_file() for p in pyphen.LANGUAGES.values())\n'
+                'for table in (Path(' + repr(str(NVDA)) + ') / "winrt").rglob("_table.pywinrt"):\n'
+                ' name = ".".join(table.parent.relative_to(Path(' + repr(str(NVDA)) + ')).parts)\n'
+                ' assert name in sys.modules, name\n'
+                ' importlib.import_module(name)\n'
+                ' assert sys.executable == original\n'
                 'print("FROZEN_RESOURCE_CHECK_OK")\n'
             )
             result = subprocess.run([str(PYTHON), '-c', script], capture_output=True, timeout=25)

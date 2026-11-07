@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9 — Preview
+
+- Fix voice loading on NVDA 2026.3.1rc1: preload the shipped WinRT projection namespaces against NVDA's actual resource directory before NVDAHelper initialization.
+- Restore the private Python executable after resource loading, including failures; do not copy WinRT data or alter the main NVDA process/profile.
+- Add frozen-resource regressions and an isolated native voice-choice check across the available test synthesizers.
+
 ## 0.1.8 — Preview
 
 - Default FB2/FB2.ZIP splitting to structural section titles rather than literal chapter-word matches in ordinary paragraphs; retain nested headings and body text without duplication.

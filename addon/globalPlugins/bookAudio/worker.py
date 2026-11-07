@@ -23,15 +23,23 @@ def preload_nvda_resources(nvda):
     """Resolve frozen NVDA data relative to NVDA, not the private interpreter."""
     import importlib
     import importlib.util
-    if importlib.util.find_spec('pyphen') is None:
+    modules = []
+    if importlib.util.find_spec('pyphen') is not None:
+        modules.append('pyphen')
+    # Newer frozen PyWinRT also resolves data against sys.executable, but
+    # does so for each namespace. Preload the shipped projection packages
+    # while their real NVDA resource root is in scope; copy no resource data.
+    for table in sorted((Path(nvda) / 'winrt').rglob('_table.pywinrt')):
+        parts = table.parent.relative_to(nvda).parts
+        if all(part.isidentifier() for part in parts):
+            modules.append('.'.join(parts))
+    if not modules:
         return
-    # NVDA 2026.3's frozen Pyphen computes its dictionaries directory from
-    # sys.executable at import time. Preload it before NVDAHelper imports
-    # braille/textUtils, then restore our real executable for subprocesses.
     executable = sys.executable
     try:
         sys.executable = str(Path(nvda) / 'nvda.exe')
-        importlib.import_module('pyphen')
+        for name in modules:
+            importlib.import_module(name)
     finally:
         sys.executable = executable
 
