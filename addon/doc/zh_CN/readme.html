@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Book Audio</title><body>
+<h1>Book Audio</h1>
+<p>一款无障碍的 NVDA 插件，用于将书籍转换为 MP3 有声书。</p>
+<p><strong>作者：</strong> Denis Skripnik — [X](https://x.com/denis_skripnik) · [Telegram](https://t.me/blind_dev) · [网站](https://blinddev.xyz)。</p>
+<p>[下载最新版本](https://github.com/denis-skripnik/nvda-book-audio/releases) · [俄语说明](README.ru.md) · [兼容性说明](docs/COMPATIBILITY.md)</p>
+<p>当前版本：<strong>0.1.9 (preview)</strong>。</p>
+<p>此版本还修复了 <strong>NVDA 2026.3.1rc1</strong> 上的语音加载问题，改为从 NVDA 而非插件私有的 Python 目录中解析 WinRT 投影资源。</p>
+<p>使用 NVDA 中已安装的语音合成器和语音库，将 TXT、FB2、FB2.ZIP 以及基于文本的 PDF 文档转换为分章 MP3 文件。此构建版本面向 <strong>NVDA 2026.2 或 2026.3、Windows x64、Python 3.13</strong>。已内置 Python 和 MP3 编码组件，无需单独安装 Python 或 FFmpeg。</p>
+<h2>打开与配置</h2>
+<p>安装 <code>bookAudio-0.1.9.nvda-addon</code> 并重启 NVDA。打开 <strong>NVDA → 工具 → Book Audio — 文本转 MP3</strong>，或按下 <strong>NVDA+Windows+A</strong>。如需重新分配快捷键，请前往 <strong>偏好设置 → 输入手势</strong>，在 <strong>Book Audio</strong> 分类下找到 <strong>打开 Book Audio 窗口</strong> 命令。用户手势映射由 NVDA 管理，不会保存在本插件中。</p>
+<p>界面语言跟随 NVDA 的语言设置：俄语版 NVDA 显示俄语，英语及其他 NVDA 语言显示英语。更改 NVDA 界面语言后请重启 NVDA。插件的内部标识符保持为 <code>bookAudio</code>，因此此版本会覆盖更新先前的安装，而不会创建重复的插件。</p>
+<p>1. 选择 <strong>添加文件</strong>。您可以一次选择多个文件，也可以多次按下此按钮按顺序追加文件。重复路径会被忽略；如需移除队列中不需要的文件，请将其删除。</p>
+<p>2. 选择一个已存在的输出文件夹。</p>
+<p>3. 选择拆分模式。<strong>自动</strong> 会优先使用实际的 FB2 章节标题（也包括 FB2.ZIP 内的文件）或可用的本地 PDF 书签。如果没有结构化标题，则会查找以 <strong>Глава</strong>、<strong>Часть</strong>、<strong>Chapter</strong> 或 <strong>Part</strong> 开头的编号行（不区分界面语言，忽略大小写）。<strong>按书籍结构</strong> 仅使用结构标题/书签，否则将正文作为单个音频轨道。<strong>每本书一个文件</strong> 会禁用拆分。此处没有可编辑的章节前缀输入框。</p>
+<p>4. 保持勾选 <strong>如有 FB2 内容简介则一并朗读</strong>，可将书籍主简介纳入输出。简介会成为第一个独立轨道；在单文件模式下，它会置于合并后的书籍开头。取消勾选可跳过简介。空简介或缺失简介不会生成轨道。</p>
+<p>5. 选择语音合成驱动，等待加载语音列表后选择语音。在语音加载期间焦点会停留在驱动选择框上；如果您切换到其他控件，加载完成也不会抢走焦点。再次切换驱动会取消过期的请求并丢弃延迟返回的结果。</p>
+<p>6. 设置 <strong>NVDA 语速</strong>（0 到 100）。这是驱动对应的 NVDA 百分比刻度，而非每分钟字数（WPM）。语速加速（Rate boost）未启用。</p>
+<p>7. 在语速之后设置 <strong>音量</strong>（0 到 100）。初始值来自独立工作进程中所选驱动的当前值（例如 Neural Voices 和 RHVoice 默认为 50），不会强制设为 100。音量在采集前通过合成器直接生效，不会叠加第二份相同的增益。播放器级别的音量控制会被遵循；没有原生音量的驱动会使用 PCM 回退方案。NVDA 主语音设置保持不变。不同驱动的音量刻度可能不同且呈非线性。设为 0 会生成静音文件；语音验证需要大于 0 的音量。任务进行中无法修改设置。</p>
+<p>8. 选择 <strong>MP3 比特率</strong>：64、96、128、160 或 192 kbit/s。默认值为 128。较低的比特率可以减小文件体积，但无法修复合成本身已存在的失真。</p>
+<p>9. 如果所选驱动声明支持原生停顿指令，比特率下方会出现两个额外控件：<strong>逗号后额外停顿</strong> 和 <strong>句末额外停顿</strong>，范围均为 0–2000 毫秒，默认为 0。设为 0 表示该类标点保持不变。这些是请求的额外停顿时长，并非精确替代引擎原有的标点时间控制；语速和引擎韵律可能会影响实际测得的间隔。数字、常见缩写和首字母缩写会受到保守保护，但文本边界处理属于启发式规则，并非完整的语言理解。不支持停顿的驱动会隐藏这些控件并丢弃旧值。</p>
+<p>10. 可选点击 <strong>验证录制</strong>。所选语音会在后台合成一段简短语句；验证要求生成非空且非静音的 PCM 数据，并成功完成 MP3 编码。测试音频不会通过扬声器播放，也不会随您的书籍一起保存。无需提前选择输入文档或输出文件夹。更改驱动、语音、语速、音量、比特率或停顿设置会使当前验证结果失效。验证过程可以随时中止。验证通过仅适用于当前设置与简短测试语句，不代表所有语音或所有书籍都完全适用。</p>
+<p>11. 点击 <strong>开始</strong>。<strong>状态</strong> 栏会报告当前的书籍和章节进度。当转换完成且窗口可见时，焦点会移至该只读状态栏，以便 NVDA 朗读结果。</p>
+<p>您可以使用 Tab 键、方向键、回车/空格键以及带 Alt 快捷键的控件。<strong>停止</strong> 会取消任务并保留已生成的 MP3 文件。按下 <strong>Escape</strong>、点击 <strong>关闭</strong> 或窗口关闭按钮会隐藏窗口，而书籍转换仍在后台继续。通过“工具”菜单或 NVDA+Windows+A 重新打开窗口，可查看同一任务及当前状态。窗口隐藏期间任务完成或失败不会弹出窗口或抢占焦点；重新打开窗口时会聚焦到已保存的结果。如需中断某本书的转换，请使用 <strong>停止</strong>。退出/重启 NVDA 或卸载插件会终止任务；任务不会在重启后恢复。关闭窗口时仍会取消语音枚举和简短录制验证。重复触发打开手势会将焦点切回现有窗口，而不会打开重复窗口。</p>
+<h2>已保存的设置</h2>
+<p>Book Audio 会在重新打开对话框和重启 NVDA 后记住输出文件夹、拆分模式、简介选项、可用的已选驱动与语音、语速、音量、比特率以及受支持的停顿设置。偏好设置单独保存在 NVDA 配置目录下的 <code>bookAudio.json</code> 中；保存设置不会更改主语音合成器，也不会强制保存其他无关的 NVDA 设置。缺失的输出文件夹会被保留，以免离线驱动器抹除您的选择；不过在开始转换前仍会执行常规的输出文件夹有效性检查。</p>
+<p>这不会保存输入文件队列，也不会在 NVDA 退出后恢复中断的转换。如果保存的驱动或语音不可用，将回退到可用选项；不支持的停顿设置不会被应用。</p>
+<h2>输出</h2>
+<p>自动文本回退机制较为保守：标题行长度必须在 120 个字符以内，且包含可识别的前缀加上阿拉伯数字、罗马数字或支持的俄语/英语数字词，句末可选带句号。匹配忽略大小写，允许缩进。纯文本中不会推测任意的尾部标题。如果没有可靠的章节边界，正文将合并为一个音频轨道，并可附带一个独立的简介轨道。</p>
+<p>PDF 书签仅在分页边界处拆分。同一页上有多个书签时，使用第一个适用的标题；不保证页内精确定位拆分，也不包含 OCR 功能。不可用的书签会回退到文本检测，且不会丢弃页面文本。</p>
+<p>每本输入书籍都会生成一个新的子文件夹。文件按序号命名，例如 <code>001 - Preface.mp3</code> 和 <code>002 - Chapter 1.mp3</code>。若文件夹已存在，会自动选择新名称，例如 <code>Book (2)</code>；已完成的文件绝不会被覆盖。对于 <code>.fb2.zip</code> 输入，文件夹名称会去掉这两个扩展名。MP3 由 LAME 按所选目标比特率编码（默认 128 kbit/s）；采样率和声道数由语音决定。</p>
+<p>取消操作或发生错误会停止队列。已完成的章节会保留；未完成的 <code>.mp3.part</code> 临时文件会被删除。可能会留下空输出文件夹。重新启动任务会从头开始并在新文件夹中生成，没有断点续传功能。</p>
+<h2>支持的输入格式与限制</h2>
+<p>- <strong>TXT：</strong> 支持带或不带 BOM 的 UTF-8、带 BOM 的 UTF-16 或 Windows-1251。其他编码请先转换为 UTF-8。</p>
+<p>- <strong>FB2：</strong> 支持正文、标题、段落、副标题、诗歌和表格单元格文本。跳过图片和元数据。拒绝 XML DTD 和实体。</p>
+<p>- <strong>FB2.ZIP：</strong> 压缩包中必须恰好包含一个 FB2 文件（可位于嵌套子文件夹中），也可包含图片资源。文档在内存中读取，不会将压缩包成员解压到磁盘。存在多个或没有 FB2 文件、不安全路径、加密、ZIP/CRC 损坏或无效 XML 均会报错。压缩包输入和解压后的 FB2 文件各自上限均为 128 MiB。</p>
+<p>- <strong>PDF：</strong> 需要包含现有文本层。<strong>不包含 OCR 功能。</strong> 复杂排版中的阅读顺序取决于 PDF 本身。请先移除非空密码；部分加密可能需要借助外部工具解密。</p>
+<p>- 每个输入文件上限为 128 MiB。临时 WAV 数据需要额外的可用磁盘空间。请将过长的章节拆分为较小的部分。</p>
+<p>已在独立的测试目录中测试了 Newfon x64 官方版 V2026.10.26：枚举了四个语音，以语速 50 渲染了两个语音，测试了两章转换与取消操作，并对 MP3 进行了独立解码。本插件不捆绑 Newfon；如需使用，请另行安装兼容的驱动。未测试旧版 32 位 Newfon 构建。</p>
+<p>0.1.2 版本支持捕获由 NVDA 标准 32 位主机代理的音频。已测试 SAPI5 x86 MP3 导出及独立解码；取消任务时会同时终止工作进程及其 32 位子进程。这并不代表与所有旧版插件兼容。Tiflotecnia/Vocalizer 仍需要合适的驱动、语音数据和有效授权；此处尚未验证任何商业构建版本。</p>
+<p>SAPI5 x64、RHVoice、eSpeak NG、Windows OneCore 和 Microsoft Neural Voices 均已通过实际合成测试。其他驱动必须通过 <code>nvwave</code> 提供 PCM 数据并报告朗读完成；列出驱动并不保证支持导出。硬件驱动、网络驱动或不常见的驱动可能不兼容。请遵守各语音提供方的录制与再分发许可协议。</p>
+<p>文档读取和 MP3 编码均在本地运行。本插件没有云端 API，但所选的第三方网络驱动可能会按其自身行为传输文本。独立工作进程使用私有的临时配置；不会修改或捕获 NVDA 的主语音、配置和词典。安全桌面上不会注册“工具”菜单项。</p>
+<h2>致谢</h2>
+<p>作者：<strong>Denis Skripnik</strong>。开发过程中使用了 [nvda-skill](https://github.com/denis-skripnik/nvda-skill) 和 [coding-skill](https://github.com/web3blind/coding-skill)。详见 [AUTHORS.md](AUTHORS.md)、[开发说明](docs/DEVELOPMENT.md) 和 [第三方声明](addon/THIRD_PARTY.md)。</p>
+<h2>测试与开发</h2>
+<p>测试涵盖文档/压缩包安全性、章节边界、输出命名/防覆盖、取消操作、工作进程退出、真实驱动以及 MP3 解码。独立的原生 wx 检查涵盖焦点、快速切换驱动、转换期间关闭窗口、菜单生命周期以及默认/重新分配的手势。最终安装包会通过 NVDA 的清单解析器验证，并对其提取的运行时进行测试。这些检查与安装/重启用户主 NVDA 并手动逐一读取控件有所不同。</p>
+<p>源码位于 <code>addon/globalPlugins/bookAudio/</code>；可运行 <code>python -m unittest discover -s tests -v</code>，随后使用 <code>addon/globalPlugins/bookAudio/runtime/python.exe</code> 运行原生 GUI/手势检查。运行 <code>python build.py</code> 可编译英语 gettext 目录并构建插件。集成测试需要安装目标 NVDA 和语音包。源文本为俄语；英语翻译维护在 <code>addon/locale/en/LC_MESSAGES/nvda.json</code> 中，并编译为标准的 GNU gettext <code>.mo</code> 文件。</p>
+<p>插件代码采用 GPL-2.0-or-later 许可。随附捆绑组件的许可证以及相应的编码器源码/构建脚本，详见 <code>THIRD_PARTY.md</code>。本软件包不包含再分发的 NVDA 二进制文件和语音模型。</p>
+</body></html>
